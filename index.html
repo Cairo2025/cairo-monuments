@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v9.4)</title>
+    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v9.5)</title>
     
     <!-- 1. 引入基础库 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -604,7 +604,7 @@
             };
 
             // 重置旋转状态
-            watch(currentImageIndex, () => { imageRotation.value = 0; });
+            // watch(currentImageIndex, () => { imageRotation.value = 0; });
             watch(selectedItem, () => { currentImageIndex.value = 0; imageRotation.value = 0; });
 
             return {
