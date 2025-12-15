@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v9.5)</title>
+    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v9.6 Independent Rotation)</title>
     
     <!-- 1. 引入基础库 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- ★★★ 新增：引入打包下载所需的库 (JSZip 和 FileSaver) ★★★ -->
+    <!-- 引入打包下载所需的库 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     
@@ -372,7 +372,7 @@
                     <div class="bg-gray-100 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
                          <a :href="googleTranslateUrl" target="_blank" class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">🌐 Translate</a>
                          
-                         <!-- ★★★ 功能 2：下载所有图片按钮 ★★★ -->
+                         <!-- 下载所有图片按钮 -->
                          <button v-if="selectedItem && selectedItem.image_paths && selectedItem.image_paths.length > 0" 
                                  type="button" 
                                  @click="downloadImages"
@@ -411,11 +411,12 @@
             <!-- 左箭头 -->
             <button v-if="selectedItem.image_paths.length > 1" @click.stop="prevImage" class="absolute left-4 top-1/2 -translate-y-1/2 text-white text-5xl hover:text-gray-300 z-[4001] p-4">❮</button>
             
-            <!-- 大图 (应用旋转样式) -->
+            <!-- 大图 (应用旋转样式 - 独立旋转) -->
+            <!-- 注意这里：transform 是基于 imageRotations[currentImageIndex] 的 -->
             <div class="relative w-full h-full flex items-center justify-center p-10">
                 <img :src="selectedItem.image_paths[currentImageIndex]" 
                      class="max-h-full max-w-full object-contain select-none shadow-2xl rotate-transition" 
-                     :style="{ transform: `rotate(${imageRotation}deg)` }"
+                     :style="{ transform: 'rotate(' + (imageRotations[currentImageIndex] || 0) + 'deg)' }"
                      alt="Full Screen Image">
             </div>
             
@@ -468,8 +469,11 @@
             
             // 灯箱状态
             const isLightboxOpen = ref(false);
-            // 图片旋转角度
-            const imageRotation = ref(0);
+            
+            // ★★★ 核心修改：使用 Reactive 对象来存储每张图片的旋转角度，而不是单一变量 ★★★
+            // Key: 图片索引 (index), Value: 角度 (degrees)
+            const imageRotations = reactive({});
+            
             // 下载状态
             const downloading = ref(false);
 
@@ -568,8 +572,18 @@
             // 灯箱与旋转
             const openLightbox = () => { isLightboxOpen.value = true; };
             const closeLightbox = () => { isLightboxOpen.value = false; };
-            const rotateLeft = () => { imageRotation.value -= 90; };
-            const rotateRight = () => { imageRotation.value += 90; };
+            
+            // ★★★ 核心修改：旋转只影响当前 index 的图片 ★★★
+            const rotateLeft = () => { 
+                const idx = currentImageIndex.value;
+                const currentDeg = imageRotations[idx] || 0;
+                imageRotations[idx] = currentDeg - 90; 
+            };
+            const rotateRight = () => { 
+                const idx = currentImageIndex.value;
+                const currentDeg = imageRotations[idx] || 0;
+                imageRotations[idx] = currentDeg + 90; 
+            };
 
             // 下载功能
             const downloadImages = async () => {
@@ -603,9 +617,14 @@
                 }
             };
 
-            // 重置旋转状态
-            // watch(currentImageIndex, () => { imageRotation.value = 0; });
-            watch(selectedItem, () => { currentImageIndex.value = 0; imageRotation.value = 0; });
+            // 当打开新地点时，清空之前的旋转记录
+            watch(selectedItem, () => { 
+                currentImageIndex.value = 0; 
+                // 清空 reactive 对象
+                for (const key in imageRotations) {
+                    delete imageRotations[key];
+                }
+            });
 
             return {
                 currentView, currentLang, isFullScreen, isEditMode, isSearchCollapsed, hideMapControls, mapError,
@@ -623,7 +642,7 @@
                 // 图片相关
                 currentImageIndex, nextImage, prevImage, showPhotoIcons,
                 // 灯箱与旋转
-                isLightboxOpen, openLightbox, closeLightbox, imageRotation, rotateLeft, rotateRight,
+                isLightboxOpen, openLightbox, closeLightbox, imageRotations, rotateLeft, rotateRight,
                 // 下载
                 downloadImages, downloading
             };
