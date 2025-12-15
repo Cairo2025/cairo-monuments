@@ -1154,7 +1154,6 @@ const FULL_DATABASE = [
             "images/72_House%20of%20Gamal%20al-Din%20al-Dhahabi/ScreenShot_2025-12-15_160726_763.png",
             "images/72_House%20of%20Gamal%20al-Din%20al-Dhahabi/ScreenShot_2025-12-15_161100_716.png",
             "images/72_House%20of%20Gamal%20al-Din%20al-Dhahabi/default%20%281%29.jpg",
-            "images/72_House%20of%20Gamal%20al-Din%20al-Dhahabi/default%20%2813%29.jpg",
             "images/72_House%20of%20Gamal%20al-Din%20al-Dhahabi/default%20%282%29.jpg",
             "images/72_House%20of%20Gamal%20al-Din%20al-Dhahabi/default%20%283%29.jpg",
             "images/72_House%20of%20Gamal%20al-Din%20al-Dhahabi/default%20%284%29.jpg",
