@@ -9,7 +9,7 @@ import sys
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 print("========================================")
-print(">>> 🚀 脚本已启动！正在处理你的 data.js")
+print(">>> 🚀 脚本已启动！正在更新数据连接...")
 print("========================================")
 
 DATA_FILE = 'data.js'           
@@ -17,7 +17,6 @@ IMAGE_ROOT = 'images'
 OUTPUT_FILE = 'data_with_paths.js' 
 
 def main():
-    # 2. 基础检查
     if not os.path.exists(DATA_FILE):
         print(f"❌ 错误：找不到 {DATA_FILE}")
         return
@@ -25,54 +24,36 @@ def main():
         print(f"❌ 错误：找不到 {IMAGE_ROOT} 文件夹")
         return
 
-    # 3. 读取并“抠出”数据
     print(f"正在读取 {DATA_FILE}...")
     try:
         with open(DATA_FILE, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # --- 核心修改：使用正则表达式精确提取数组 ---
-        # 你的文件格式是: const FULL_DATABASE = [ ... ];
-        # 我们只提取 [ ... ] 中间的部分
         match = re.search(r'const\s+FULL_DATABASE\s*=\s*(\[\s*\{.*\}\s*\])\s*;', content, re.DOTALL)
         
         if not match:
-            print("❌ 无法识别 data.js 格式。请确认文件开头是 'const FULL_DATABASE = ['")
+            print("❌ 无法识别 data.js 格式")
             return
         
-        # 提取出的纯 JSON 字符串
         json_str = match.group(1)
-        
-        # 解析数据
         data_list = json.loads(json_str)
-        print(f"✅ 成功解析 FULL_DATABASE，共 {len(data_list)} 条数据")
-
-        # 同时我们也尝试保留 SAVED_COORDINATES 部分，以免丢失
+        
         coords_match = re.search(r'const\s+SAVED_COORDINATES\s*=\s*(\{.*\})\s*;', content, re.DOTALL)
-        coords_content = ""
-        if coords_match:
-            coords_content = coords_match.group(1)
-            print("✅ 成功识别 SAVED_COORDINATES 数据")
-        else:
-            print("⚠️ 未找到 SAVED_COORDINATES，新文件将为空坐标（不影响图片功能）")
-            coords_content = "{}"
+        coords_content = coords_match.group(1) if coords_match else "{}"
 
     except Exception as e:
         print(f"❌ 解析出错: {e}")
         return
 
-    # 4. 建立文件夹映射
+    # 4. 建立文件夹映射 (这里是修改过的地方)
     print(f"正在扫描 {IMAGE_ROOT} 文件夹...")
     id_to_folder = {}
     
-    if len(os.listdir(IMAGE_ROOT)) == 0:
-        print("⚠️  注意：images 文件夹是空的！")
-
     for name in os.listdir(IMAGE_ROOT):
         path = os.path.join(IMAGE_ROOT, name)
         if os.path.isdir(path):
-            # 尝试匹配 #ID#
-            m = re.match(r'^#(\w+)#', name)
+            # ★★★ 修改：同时支持 #ID# 和 _ID_ 格式 ★★★
+            m = re.match(r'^[#_](\w+)[#_]', name)
             if m:
                 id_to_folder[m.group(1)] = name
             else:
@@ -87,8 +68,10 @@ def main():
         folder = id_to_folder.get(item_id)
         if folder:
             full_path = os.path.join(IMAGE_ROOT, folder)
+            # 使用 os.walk 以防万一有子文件夹，或者直接 listdir
             for fname in sorted(os.listdir(full_path)):
                 if fname.lower().endswith(('.jpg', '.png', '.jpeg', '.webp')):
+                    # URL 编码，确保特殊字符安全
                     safe_folder = urllib.parse.quote(folder)
                     safe_file = urllib.parse.quote(fname)
                     p = f"{IMAGE_ROOT}/{safe_folder}/{safe_file}"
@@ -97,12 +80,8 @@ def main():
             if item['image_paths']:
                 count += 1
 
-    # 6. 完美还原文件格式
-    # 我们不仅要保存数据，还要把原来的格式（const ...）写回去，
-    # 并且把 SAVED_COORDINATES 也带上，保证地图功能不丢失。
-    
+    # 6. 写入文件
     print("正在写入新文件...")
-    
     final_js_content = f"""
 // ==========================================
 // 自动生成的带图片路径数据文件
@@ -123,4 +102,3 @@ const SAVED_COORDINATES = {coords_content};
 
 if __name__ == "__main__":
     main()
-    input("\n按回车键退出程序...")
