@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v9.6 Independent Rotation)</title>
+    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v9.7 Independent Rotation)</title>
     
     <!-- 1. 引入基础库 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -412,7 +412,8 @@
             <button v-if="selectedItem.image_paths.length > 1" @click.stop="prevImage" class="absolute left-4 top-1/2 -translate-y-1/2 text-white text-5xl hover:text-gray-300 z-[4001] p-4">❮</button>
             
             <!-- 大图 (应用旋转样式 - 独立旋转) -->
-            <!-- 注意这里：transform 是基于 imageRotations[currentImageIndex] 的 -->
+            <!-- 关键修改：transform 绑定到 imageRotations[currentImageIndex] -->
+            <!-- 这意味着每张图片都有自己独立的旋转角度 -->
             <div class="relative w-full h-full flex items-center justify-center p-10">
                 <img :src="selectedItem.image_paths[currentImageIndex]" 
                      class="max-h-full max-w-full object-contain select-none shadow-2xl rotate-transition" 
@@ -470,7 +471,7 @@
             // 灯箱状态
             const isLightboxOpen = ref(false);
             
-            // ★★★ 核心修改：使用 Reactive 对象来存储每张图片的旋转角度，而不是单一变量 ★★★
+            // ★★★ 核心：imageRotations 存储每一张图的独立旋转角度 ★★★
             // Key: 图片索引 (index), Value: 角度 (degrees)
             const imageRotations = reactive({});
             
@@ -573,16 +574,16 @@
             const openLightbox = () => { isLightboxOpen.value = true; };
             const closeLightbox = () => { isLightboxOpen.value = false; };
             
-            // ★★★ 核心修改：旋转只影响当前 index 的图片 ★★★
+            // ★★★ 核心修改：确保旋转只针对当前索引的图片 ★★★
             const rotateLeft = () => { 
                 const idx = currentImageIndex.value;
-                const currentDeg = imageRotations[idx] || 0;
-                imageRotations[idx] = currentDeg - 90; 
+                if (imageRotations[idx] === undefined) imageRotations[idx] = 0;
+                imageRotations[idx] -= 90; 
             };
             const rotateRight = () => { 
                 const idx = currentImageIndex.value;
-                const currentDeg = imageRotations[idx] || 0;
-                imageRotations[idx] = currentDeg + 90; 
+                if (imageRotations[idx] === undefined) imageRotations[idx] = 0;
+                imageRotations[idx] += 90; 
             };
 
             // 下载功能
@@ -620,7 +621,7 @@
             // 当打开新地点时，清空之前的旋转记录
             watch(selectedItem, () => { 
                 currentImageIndex.value = 0; 
-                // 清空 reactive 对象
+                // 清空 reactive 对象，确保新地点没有任何旋转记忆
                 for (const key in imageRotations) {
                     delete imageRotations[key];
                 }
