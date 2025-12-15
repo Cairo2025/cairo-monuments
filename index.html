@@ -3,13 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v9.3)</title>
+    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v9.4)</title>
     
     <!-- 1. 引入基础库 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- ★★★ 新增：引入打包下载所需的库 (JSZip 和 FileSaver) ★★★ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     
     <!-- 2. 引入数据文件 -->
     <script src="data_with_paths.js"></script>
@@ -25,37 +29,19 @@
         .input-base:disabled { background-color: #e5e7eb; cursor: not-allowed; color: #9ca3af; }
         #map-container { width: 100%; height: 100%; background: #e5e7eb; z-index: 1; }
         
-        /* Marker 样式 */
         .custom-marker { filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.3)); transition: transform 0.2s; }
         .custom-marker:hover { transform: scale(1.3); z-index: 1000 !important; cursor: pointer; }
         
-        /* ★★★ 新增：有图地点的相机角标样式 ★★★ */
         .photo-badge {
-            position: absolute;
-            top: -6px;
-            right: -6px;
-            background-color: #ffffff;
-            border: 1px solid #3b82f6;
-            border-radius: 50%;
-            width: 14px;
-            height: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 9px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
-            z-index: 10;
+            position: absolute; top: -6px; right: -6px; background-color: #ffffff; border: 1px solid #3b82f6;
+            border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center;
+            justify-content: center; font-size: 9px; box-shadow: 0 1px 2px rgba(0,0,0,0.3); z-index: 10;
         }
 
-        /* 动态标签样式 */
         .map-label-tooltip {
-            background: transparent;
-            border: none;
-            box-shadow: none;
-            font-weight: bold;
+            background: transparent; border: none; box-shadow: none; font-weight: bold;
             text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
-            color: #000;
-            padding: 0 4px;
+            color: #000; padding: 0 4px;
         }
         .map-label-tooltip::before { display: none; }
 
@@ -72,13 +58,14 @@
         .color-picker::-webkit-color-swatch-wrapper { padding: 0; }
         .color-picker::-webkit-color-swatch { border: 1px solid rgba(0,0,0,0.1); border-radius: 50%; }
         
-        input[type=range] {
-            height: 4px; border-radius: 2px; background: #e5e7eb; outline: none; -webkit-appearance: none;
-        }
+        input[type=range] { height: 4px; border-radius: 2px; background: #e5e7eb; outline: none; -webkit-appearance: none; }
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none; appearance: none; width: 12px; height: 12px; border-radius: 50%; 
             background: #3b82f6; cursor: pointer; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.2);
         }
+
+        /* 旋转过渡动画 */
+        .rotate-transition { transition: transform 0.3s ease-in-out; }
 
         [v-cloak] { display: none !important; }
     </style>
@@ -212,6 +199,7 @@
                             </div>
                         </div>
                     </div>
+                    <!-- 待落位列表 -->
                     <div v-if="isEditMode" class="bg-white/95 backdrop-blur rounded-lg shadow-xl border border-yellow-400 overflow-hidden flex flex-col max-h-[50vh]">
                         <div class="p-3 bg-yellow-50 border-b border-yellow-100 font-bold text-sm text-yellow-800 flex justify-between">
                             <span>📌 {{ t.unmappedList }} ({{ unmappedData.length }})</span>
@@ -243,7 +231,7 @@
                             </div>
                         </div>
 
-                        <!-- ★★★ 功能 1：新增“显示有图标志点”开关 ★★★ -->
+                        <!-- Photos Toggle -->
                         <div class="bg-white/90 backdrop-blur rounded-lg shadow border px-3 py-2 flex items-center gap-2">
                             <label class="inline-flex items-center cursor-pointer">
                                 <input type="checkbox" v-model="showPhotoIcons" class="sr-only peer">
@@ -252,6 +240,7 @@
                             </label>
                         </div>
 
+                        <!-- Edit Mode -->
                         <div class="bg-white/90 backdrop-blur rounded-lg shadow border px-3 py-2 flex items-center gap-3">
                             <label class="inline-flex items-center cursor-pointer">
                                 <input type="checkbox" v-model="isEditMode" class="sr-only peer">
@@ -356,10 +345,9 @@
                              <span v-if="getCategoryInfo(selectedItem)" :class="`inline-flex items-center px-2 py-1 rounded text-xs font-medium border`" :style="getCategoryInfo(selectedItem).style">{{ getCategoryInfo(selectedItem).label }} - {{ getSubCategoryLabel(selectedItem) }}</span>
                         </div>
 
-                        <!-- 轮播组件 (支持点击放大) -->
+                        <!-- 轮播组件 -->
                         <div class="mb-4 relative group bg-gray-100 rounded-lg overflow-hidden border border-gray-200" style="min-height: 200px;">
                             <div v-if="selectedItem.image_paths && selectedItem.image_paths.length > 0">
-                                <!-- ★★★ 修改：添加 cursor-zoom-in 和点击事件 ★★★ -->
                                 <img :src="selectedItem.image_paths[currentImageIndex]" 
                                      @click="openLightbox"
                                      class="w-full h-64 sm:h-80 object-contain mx-auto transition-all duration-300 bg-black/5 cursor-zoom-in" 
@@ -379,8 +367,20 @@
 
                         <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line bg-gray-50 p-4 rounded">{{ selectedItem.description }}</p>
                     </div>
+                    
+                    <!-- Modal Footer -->
                     <div class="bg-gray-100 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
                          <a :href="googleTranslateUrl" target="_blank" class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">🌐 Translate</a>
+                         
+                         <!-- ★★★ 功能 2：下载所有图片按钮 ★★★ -->
+                         <button v-if="selectedItem && selectedItem.image_paths && selectedItem.image_paths.length > 0" 
+                                 type="button" 
+                                 @click="downloadImages"
+                                 :disabled="downloading"
+                                 class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                             {{ downloading ? '⏳ Zipping...' : '📦 Download All Images' }}
+                         </button>
+
                          <button type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 sm:ml-3 sm:w-auto sm:text-sm" @click="closeModal">Close</button>
                          <button v-if="isEditMode && savedCoordinates[selectedItem.id]" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm" @click="deleteMarker(selectedItem.id)">🗑️ Remove Marker</button>
                     </div>
@@ -388,24 +388,39 @@
             </div>
         </div>
 
-        <!-- ★★★ 功能 2：全屏图片灯箱 (Lightbox) ★★★ -->
+        <!-- ★★★ 功能 1：全屏图片灯箱 (Lightbox) 及旋转功能 ★★★ -->
         <div v-if="isLightboxOpen && selectedItem && selectedItem.image_paths && selectedItem.image_paths.length > 0" 
-             class="fixed inset-0 z-[4000] bg-black bg-opacity-95 flex items-center justify-center"
+             class="fixed inset-0 z-[4000] bg-black bg-opacity-95 flex items-center justify-center overflow-hidden"
              @click.self="closeLightbox">
             
             <!-- 关闭按钮 -->
             <button @click="closeLightbox" class="absolute top-4 right-4 text-white text-4xl hover:text-gray-300 z-[4001]">&times;</button>
             
+            <!-- 旋转控制按钮 -->
+            <div class="absolute top-4 left-4 z-[4001] flex gap-4">
+                <button @click.stop="rotateLeft" class="text-white hover:text-blue-400 flex flex-col items-center group">
+                    <span class="text-2xl">↺</span>
+                    <span class="text-xs opacity-0 group-hover:opacity-100 transition">Left</span>
+                </button>
+                <button @click.stop="rotateRight" class="text-white hover:text-blue-400 flex flex-col items-center group">
+                    <span class="text-2xl">↻</span>
+                    <span class="text-xs opacity-0 group-hover:opacity-100 transition">Right</span>
+                </button>
+            </div>
+
             <!-- 左箭头 -->
-            <button v-if="selectedItem.image_paths.length > 1" @click.stop="prevImage" class="absolute left-4 text-white text-5xl hover:text-gray-300 z-[4001] p-4">❮</button>
+            <button v-if="selectedItem.image_paths.length > 1" @click.stop="prevImage" class="absolute left-4 top-1/2 -translate-y-1/2 text-white text-5xl hover:text-gray-300 z-[4001] p-4">❮</button>
             
-            <!-- 大图 -->
-            <img :src="selectedItem.image_paths[currentImageIndex]" 
-                 class="max-h-screen max-w-full object-contain select-none shadow-2xl" 
-                 alt="Full Screen Image">
+            <!-- 大图 (应用旋转样式) -->
+            <div class="relative w-full h-full flex items-center justify-center p-10">
+                <img :src="selectedItem.image_paths[currentImageIndex]" 
+                     class="max-h-full max-w-full object-contain select-none shadow-2xl rotate-transition" 
+                     :style="{ transform: `rotate(${imageRotation}deg)` }"
+                     alt="Full Screen Image">
+            </div>
             
             <!-- 右箭头 -->
-            <button v-if="selectedItem.image_paths.length > 1" @click.stop="nextImage" class="absolute right-4 text-white text-5xl hover:text-gray-300 z-[4001] p-4">❯</button>
+            <button v-if="selectedItem.image_paths.length > 1" @click.stop="nextImage" class="absolute right-4 top-1/2 -translate-y-1/2 text-white text-5xl hover:text-gray-300 z-[4001] p-4">❯</button>
             
             <!-- 底部计数 -->
             <div class="absolute bottom-4 left-1/2 -translate-x-1/2 text-white bg-black/50 px-4 py-1 rounded-full font-mono">
@@ -438,8 +453,6 @@
             const showMapLabels = ref(false); 
             const mapLabelFontSize = ref(12); 
             const showParenthesesLayer = ref(false); 
-            
-            // ★★★ 新增：控制是否显示相机标志 ★★★
             const showPhotoIcons = ref(false);
 
             const exportIconScale = ref(100); 
@@ -453,8 +466,12 @@
             const selectedItem = ref(null);
             const currentImageIndex = ref(0);
             
-            // ★★★ 新增：灯箱状态 ★★★
+            // 灯箱状态
             const isLightboxOpen = ref(false);
+            // 图片旋转角度
+            const imageRotation = ref(0);
+            // 下载状态
+            const downloading = ref(false);
 
             const customColors = reactive({ ...DEFAULT_COLORS });
             const visibleLayers = reactive({ eras: Object.keys(ERA_SHAPES), cats: Object.keys(DEFAULT_COLORS) });
@@ -510,9 +527,7 @@
                         const hasParentheses = item.id.includes('(') || item.id.includes(')');
                         if (showParenthesesLayer.value && hasParentheses) { color = '#000000'; }
                         
-                        // ★★★ 修改：动态构建 Icon HTML ★★★
                         let markerHtml = `<div class="relative">${getSvgIcon(shape, color)}`;
-                        // 如果开启了显示照片图标，且该点有照片，就加一个白色小圆点
                         if (showPhotoIcons.value && item.image_paths && item.image_paths.length > 0) {
                             markerHtml += `<div class="photo-badge">📷</div>`;
                         }
@@ -536,7 +551,6 @@
             const toggleAll = (type) => { const all = type === 'eras' ? Object.keys(ERA_SHAPES) : Object.keys(DEFAULT_COLORS); if (visibleLayers[type].length === all.length) visibleLayers[type] = []; else visibleLayers[type] = all; };
             const resetColors = () => { Object.assign(customColors, DEFAULT_COLORS); };
             
-            // ★★★ 监听 showPhotoIcons 变化，触发地图重绘 ★★★
             watch([filteredData, isEditMode, visibleLayers, customColors, showParenthesesLayer, showMapLabels, mapLabelFontSize, showPhotoIcons], () => { if(currentView.value === 'map') renderMarkers(); }, { deep: true });
             
             const exportCoordinates = () => { navigator.clipboard.writeText(JSON.stringify(coordinates.value, null, 4)).then(() => alert("Coordinates copied to clipboard!")); };
@@ -547,15 +561,51 @@
             const googleTranslateUrl = computed(() => selectedItem.value ? `https://translate.google.com/?sl=en&tl=zh-CN&text=${encodeURIComponent(selectedItem.value.description)}&op=translate` : "#");
             const getSvgPath = (d) => d; 
 
-            // 图片轮播逻辑
+            // 图片轮播
             const nextImage = () => { if (selectedItem.value && selectedItem.value.image_paths) { currentImageIndex.value = (currentImageIndex.value + 1) % selectedItem.value.image_paths.length; } };
             const prevImage = () => { if (selectedItem.value && selectedItem.value.image_paths) { currentImageIndex.value = (currentImageIndex.value - 1 + selectedItem.value.image_paths.length) % selectedItem.value.image_paths.length; } };
             
-            // ★★★ 新增：灯箱控制逻辑 ★★★
+            // 灯箱与旋转
             const openLightbox = () => { isLightboxOpen.value = true; };
             const closeLightbox = () => { isLightboxOpen.value = false; };
+            const rotateLeft = () => { imageRotation.value -= 90; };
+            const rotateRight = () => { imageRotation.value += 90; };
 
-            watch(selectedItem, () => { currentImageIndex.value = 0; });
+            // 下载功能
+            const downloadImages = async () => {
+                if (!selectedItem.value || !selectedItem.value.image_paths || selectedItem.value.image_paths.length === 0) return;
+                
+                downloading.value = true;
+                const zip = new JSZip();
+                // 清理文件名中的特殊字符
+                const safeName = selectedItem.value.name.replace(/[^a-z0-9]/gi, '_').replace(/_+/g, '_');
+                const folderName = `${selectedItem.value.id}_${safeName}`;
+
+                try {
+                    const promises = selectedItem.value.image_paths.map(async (url) => {
+                        const response = await fetch(url);
+                        if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+                        const blob = await response.blob();
+                        const filename = url.substring(url.lastIndexOf('/') + 1);
+                        // 解码文件名（处理 URL 编码的字符）
+                        const decodedFilename = decodeURIComponent(filename);
+                        zip.file(decodedFilename, blob);
+                    });
+
+                    await Promise.all(promises);
+                    const content = await zip.generateAsync({ type: "blob" });
+                    saveAs(content, `${folderName}.zip`);
+                } catch (error) {
+                    console.error("Download failed:", error);
+                    alert("Download failed. Please check console for details.");
+                } finally {
+                    downloading.value = false;
+                }
+            };
+
+            // 重置旋转状态
+            watch(currentImageIndex, () => { imageRotation.value = 0; });
+            watch(selectedItem, () => { currentImageIndex.value = 0; imageRotation.value = 0; });
 
             return {
                 currentView, currentLang, isFullScreen, isEditMode, isSearchCollapsed, hideMapControls, mapError,
@@ -571,9 +621,11 @@
                 showMapLabels, mapLabelFontSize,
                 
                 // 图片相关
-                currentImageIndex, nextImage, prevImage,
-                showPhotoIcons, // 导出变量
-                isLightboxOpen, openLightbox, closeLightbox // 导出变量
+                currentImageIndex, nextImage, prevImage, showPhotoIcons,
+                // 灯箱与旋转
+                isLightboxOpen, openLightbox, closeLightbox, imageRotation, rotateLeft, rotateRight,
+                // 下载
+                downloadImages, downloading
             };
         }
     }).mount('#app');
