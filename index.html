@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v9.7 Independent Rotation)</title>
+    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v9.8 No Rotation)</title>
     
     <!-- 1. 引入基础库 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -63,9 +63,6 @@
             -webkit-appearance: none; appearance: none; width: 12px; height: 12px; border-radius: 50%; 
             background: #3b82f6; cursor: pointer; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.2);
         }
-
-        /* 旋转过渡动画 */
-        .rotate-transition { transition: transform 0.3s ease-in-out; }
 
         [v-cloak] { display: none !important; }
     </style>
@@ -388,7 +385,7 @@
             </div>
         </div>
 
-        <!-- ★★★ 功能 1：全屏图片灯箱 (Lightbox) 及旋转功能 ★★★ -->
+        <!-- ★★★ 功能 1：全屏图片灯箱 (Lightbox) - 无旋转功能 ★★★ -->
         <div v-if="isLightboxOpen && selectedItem && selectedItem.image_paths && selectedItem.image_paths.length > 0" 
              class="fixed inset-0 z-[4000] bg-black bg-opacity-95 flex items-center justify-center overflow-hidden"
              @click.self="closeLightbox">
@@ -396,28 +393,13 @@
             <!-- 关闭按钮 -->
             <button @click="closeLightbox" class="absolute top-4 right-4 text-white text-4xl hover:text-gray-300 z-[4001]">&times;</button>
             
-            <!-- 旋转控制按钮 -->
-            <div class="absolute top-4 left-4 z-[4001] flex gap-4">
-                <button @click.stop="rotateLeft" class="text-white hover:text-blue-400 flex flex-col items-center group">
-                    <span class="text-2xl">↺</span>
-                    <span class="text-xs opacity-0 group-hover:opacity-100 transition">Left</span>
-                </button>
-                <button @click.stop="rotateRight" class="text-white hover:text-blue-400 flex flex-col items-center group">
-                    <span class="text-2xl">↻</span>
-                    <span class="text-xs opacity-0 group-hover:opacity-100 transition">Right</span>
-                </button>
-            </div>
-
             <!-- 左箭头 -->
             <button v-if="selectedItem.image_paths.length > 1" @click.stop="prevImage" class="absolute left-4 top-1/2 -translate-y-1/2 text-white text-5xl hover:text-gray-300 z-[4001] p-4">❮</button>
             
-            <!-- 大图 (应用旋转样式 - 独立旋转) -->
-            <!-- 关键修改：transform 绑定到 imageRotations[currentImageIndex] -->
-            <!-- 这意味着每张图片都有自己独立的旋转角度 -->
+            <!-- 大图 -->
             <div class="relative w-full h-full flex items-center justify-center p-10">
                 <img :src="selectedItem.image_paths[currentImageIndex]" 
-                     class="max-h-full max-w-full object-contain select-none shadow-2xl rotate-transition" 
-                     :style="{ transform: 'rotate(' + (imageRotations[currentImageIndex] || 0) + 'deg)' }"
+                     class="max-h-full max-w-full object-contain select-none shadow-2xl" 
                      alt="Full Screen Image">
             </div>
             
@@ -470,10 +452,6 @@
             
             // 灯箱状态
             const isLightboxOpen = ref(false);
-            
-            // ★★★ 核心：imageRotations 存储每一张图的独立旋转角度 ★★★
-            // Key: 图片索引 (index), Value: 角度 (degrees)
-            const imageRotations = reactive({});
             
             // 下载状态
             const downloading = ref(false);
@@ -570,22 +548,10 @@
             const nextImage = () => { if (selectedItem.value && selectedItem.value.image_paths) { currentImageIndex.value = (currentImageIndex.value + 1) % selectedItem.value.image_paths.length; } };
             const prevImage = () => { if (selectedItem.value && selectedItem.value.image_paths) { currentImageIndex.value = (currentImageIndex.value - 1 + selectedItem.value.image_paths.length) % selectedItem.value.image_paths.length; } };
             
-            // 灯箱与旋转
+            // 灯箱
             const openLightbox = () => { isLightboxOpen.value = true; };
             const closeLightbox = () => { isLightboxOpen.value = false; };
             
-            // ★★★ 核心修改：确保旋转只针对当前索引的图片 ★★★
-            const rotateLeft = () => { 
-                const idx = currentImageIndex.value;
-                if (imageRotations[idx] === undefined) imageRotations[idx] = 0;
-                imageRotations[idx] -= 90; 
-            };
-            const rotateRight = () => { 
-                const idx = currentImageIndex.value;
-                if (imageRotations[idx] === undefined) imageRotations[idx] = 0;
-                imageRotations[idx] += 90; 
-            };
-
             // 下载功能
             const downloadImages = async () => {
                 if (!selectedItem.value || !selectedItem.value.image_paths || selectedItem.value.image_paths.length === 0) return;
@@ -618,13 +584,9 @@
                 }
             };
 
-            // 当打开新地点时，清空之前的旋转记录
+            // 当打开新地点时，重置
             watch(selectedItem, () => { 
                 currentImageIndex.value = 0; 
-                // 清空 reactive 对象，确保新地点没有任何旋转记忆
-                for (const key in imageRotations) {
-                    delete imageRotations[key];
-                }
             });
 
             return {
@@ -642,8 +604,8 @@
                 
                 // 图片相关
                 currentImageIndex, nextImage, prevImage, showPhotoIcons,
-                // 灯箱与旋转
-                isLightboxOpen, openLightbox, closeLightbox, imageRotations, rotateLeft, rotateRight,
+                // 灯箱
+                isLightboxOpen, openLightbox, closeLightbox,
                 // 下载
                 downloadImages, downloading
             };
