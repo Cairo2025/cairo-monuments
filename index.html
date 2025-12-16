@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v10.0 Faith Mode)</title>
+    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v10.1 Hybrid Faith Mode)</title>
     
     <!-- 1. 引入基础库 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -586,18 +586,33 @@
                         const subKey = identifySubCategory(item);
                         const mainKey = getMainCategoryBySub(subKey);
                         
-                        // ★★★ LOGIC BRANCH: FAITH MODE vs NORMAL MODE ★★★
                         if (!visibleLayers.eras.includes(eraKey)) return;
 
                         let color = '#999';
 
                         if (faithMode.value) {
-                            // 1. If Faith Mode is ON, only show Faith items
-                            if (mainKey !== 'Faith') return;
-                            // 2. Check Sub-category visibility
-                            if (!visibleFaithLayers.value.includes(subKey)) return;
-                            // 3. Use Sub-category Color
-                            color = FAITH_SUB_COLORS[subKey] || '#666';
+                            // ★★★ MODIFIED FAITH LOGIC ★★★
+                            // 1. Check if it's implicitly a Kuttab (even if it's categorized as Leisure/Sabil)
+                            // We check if name or description contains "kuttab"
+                            const nameLower = item.name.toLowerCase();
+                            const descLower = (item.description || "").toLowerCase();
+                            const isHybridKuttab = (mainKey === 'Leisure' || subKey === 'Sabil') && (nameLower.includes('kuttab') || descLower.includes('kuttab'));
+
+                            // 2. Determine effective sub-category for filtering/coloring
+                            let effectiveSubKey = subKey;
+                            if (isHybridKuttab) {
+                                effectiveSubKey = 'Kuttab'; // Force treat as Kuttab
+                            }
+
+                            // 3. Main Filter: Must be Faith category OR be a Hybrid Kuttab
+                            if (mainKey !== 'Faith' && !isHybridKuttab) return;
+
+                            // 4. Sub-category Visibility Check
+                            if (!visibleFaithLayers.value.includes(effectiveSubKey)) return;
+
+                            // 5. Apply Color
+                            color = FAITH_SUB_COLORS[effectiveSubKey] || '#666';
+
                         } else {
                             // Normal Mode
                             if (!visibleLayers.cats.includes(mainKey)) return;
@@ -629,12 +644,18 @@
             
             const exportFullMap = async () => { if (!imageOverlay || !imageOverlay._image) { alert("Map not loaded."); return; } const originalImg = imageOverlay._image; const width = originalImg.naturalWidth; const height = originalImg.naturalHeight; if (width === 0 || height === 0) return; const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d'); ctx.drawImage(originalImg, 0, 0); const baseScale = Math.max(1.0, width / 2500); const finalIconScale = baseScale * (exportIconScale.value / 100); const finalTextScale = baseScale * (exportTextScale.value / 100); ctx.textAlign = "center"; ctx.textBaseline = "top"; filteredData.value.forEach(item => { const coords = coordinates.value[item.id]; if (!coords) return; const eraKey = getEraCategory(item.dating); const subKey = identifySubCategory(item); const mainKey = getMainCategoryBySub(subKey); if (!visibleLayers.eras.includes(eraKey)) return; 
             
-            // Export Logic also needs to respect Faith Mode
+            // Export Logic also needs to respect Faith Mode and Hybrid Logic
             let color = '#999';
             if (faithMode.value) {
-                if (mainKey !== 'Faith') return;
-                if (!visibleFaithLayers.value.includes(subKey)) return;
-                color = FAITH_SUB_COLORS[subKey] || '#666';
+                const nameLower = item.name.toLowerCase();
+                const descLower = (item.description || "").toLowerCase();
+                const isHybridKuttab = (mainKey === 'Leisure' || subKey === 'Sabil') && (nameLower.includes('kuttab') || descLower.includes('kuttab'));
+                let effectiveSubKey = subKey;
+                if (isHybridKuttab) effectiveSubKey = 'Kuttab';
+
+                if (mainKey !== 'Faith' && !isHybridKuttab) return;
+                if (!visibleFaithLayers.value.includes(effectiveSubKey)) return;
+                color = FAITH_SUB_COLORS[effectiveSubKey] || '#666';
             } else {
                 if (!visibleLayers.cats.includes(mainKey)) return;
                 color = customColors[mainKey] || '#999';
