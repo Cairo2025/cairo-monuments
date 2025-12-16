@@ -3,19 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v10.2 Pink Kuttab)</title>
+    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v10.3 Preload)</title>
     
-    <!-- 1. 引入基础库 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- 引入打包下载所需的库 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     
-    <!-- 2. 引入数据文件 -->
     <script src="data_with_paths.js"></script>
     
     <style>
@@ -78,7 +75,6 @@
 <body>
     <div id="app" class="main-layout" v-cloak>
         
-        <!-- Header -->
         <header v-if="!isFullScreen" class="bg-slate-900 text-white shadow-xl flex-shrink-0 z-[2000]">
             <div class="container mx-auto px-4 py-3 flex justify-between items-center">
                 <div class="flex items-center space-x-3 cursor-pointer" @click="resetSearch">
@@ -105,7 +101,6 @@
             </div>
         </header>
 
-        <!-- Search Filters -->
         <div v-if="currentView === 'list'" class="bg-white shadow-sm border-b border-gray-200 p-4 z-[1001]">
             <div class="container mx-auto max-w-7xl">
                 <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
@@ -151,7 +146,6 @@
         </div>
 
         <main class="flex-grow relative overflow-hidden flex flex-col">
-            <!-- List View -->
             <div v-if="currentView === 'list'" class="flex-grow overflow-y-auto bg-gray-100 relative z-10">
                 <div class="container mx-auto max-w-7xl px-4 py-8">
                     <div v-if="filteredData.length === 0" class="text-center py-20">
@@ -183,10 +177,9 @@
                 </div>
             </div>
 
-            <!-- Map View -->
             <div class="absolute inset-0 w-full h-full transition-opacity duration-300" 
-     :class="{'invisible opacity-0 -z-10': currentView !== 'map', 'visible opacity-100 z-0': currentView === 'map'}">
-                <!-- Left Controls -->
+                 :class="{'opacity-0 -z-10 pointer-events-none': currentView !== 'map', 'opacity-100 z-0 pointer-events-auto': currentView === 'map'}">
+                
                 <div class="absolute top-4 left-4 z-[1000] flex flex-col gap-2 max-w-sm w-full transition-all duration-300" :class="{'opacity-0 pointer-events-none': hideMapControls}">
                     <div class="bg-white/95 backdrop-blur rounded-lg shadow-xl border border-gray-200 overflow-hidden">
                         <div class="p-3 bg-gray-50 border-b flex justify-between items-center cursor-pointer" @click="isSearchCollapsed = !isSearchCollapsed">
@@ -205,7 +198,6 @@
                             </div>
                         </div>
                     </div>
-                    <!-- 待落位列表 -->
                     <div v-if="isEditMode" class="bg-white/95 backdrop-blur rounded-lg shadow-xl border border-yellow-400 overflow-hidden flex flex-col max-h-[50vh]">
                         <div class="p-3 bg-yellow-50 border-b border-yellow-100 font-bold text-sm text-yellow-800 flex justify-between">
                             <span>📌 {{ t.unmappedList }} ({{ unmappedData.length }})</span>
@@ -218,10 +210,8 @@
                     </div>
                 </div>
 
-                <!-- Right Controls -->
                 <div class="absolute top-4 right-4 z-[1000] flex flex-col gap-2 items-end">
                     <div class="flex gap-2">
-                        <!-- Label Control -->
                         <div class="bg-white/90 backdrop-blur rounded-lg shadow border px-3 py-2 flex flex-col justify-center w-40">
                              <div class="flex items-center justify-between mb-1">
                                 <span class="text-[10px] font-bold text-gray-500 uppercase">🅰️ Labels</span>
@@ -237,7 +227,6 @@
                             </div>
                         </div>
 
-                        <!-- Photos Toggle -->
                         <div class="bg-white/90 backdrop-blur rounded-lg shadow border px-3 py-2 flex items-center gap-2">
                             <label class="inline-flex items-center cursor-pointer">
                                 <input type="checkbox" v-model="showPhotoIcons" class="sr-only peer">
@@ -246,7 +235,6 @@
                             </label>
                         </div>
 
-                        <!-- Edit Mode -->
                         <div class="bg-white/90 backdrop-blur rounded-lg shadow border px-3 py-2 flex items-center gap-3">
                             <label class="inline-flex items-center cursor-pointer">
                                 <input type="checkbox" v-model="isEditMode" class="sr-only peer">
@@ -257,7 +245,6 @@
                         </div>
                     </div>
 
-                    <!-- Export Controls -->
                     <div class="bg-white/90 backdrop-blur rounded-lg shadow border px-3 py-2 flex flex-col gap-1 w-44">
                         <div class="flex items-center gap-2">
                             <span class="text-[10px] font-bold text-gray-500 uppercase w-8">Icon</span>
@@ -280,7 +267,16 @@
 
                 <div id="map-container"></div>
                 
-                <!-- Layer Control (Enhanced) -->
+                <div v-if="isMapLoading && !mapError" class="absolute inset-0 z-[400] flex flex-col items-center justify-center bg-gray-100">
+                    <div class="bg-white p-4 rounded-full shadow-xl animate-bounce">
+                        <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <span class="mt-4 text-sm font-bold text-gray-500 uppercase tracking-widest animate-pulse">Loading Map Data...</span>
+                </div>
+
                 <div class="absolute bottom-6 right-6 z-[1000] transition-all duration-300 transform" :class="{'translate-y-[150%]': hideMapControls}">
                     <div class="bg-white/95 backdrop-blur rounded-lg shadow-2xl border border-gray-200 w-64 overflow-hidden">
                         <div class="bg-gray-100 p-2 border-b flex justify-between items-center cursor-pointer" @click="showLayers = !showLayers">
@@ -289,7 +285,6 @@
                         </div>
                         <div v-show="showLayers" class="p-3 max-h-96 overflow-y-auto no-scrollbar">
                             
-                            <!-- FAITH MODE TOGGLE -->
                             <div class="mb-3 pb-3 border-b border-gray-200">
                                 <label class="flex items-center text-xs font-bold text-blue-800 cursor-pointer hover:bg-blue-50 p-1 rounded transition">
                                     <input type="checkbox" v-model="faithMode" class="mr-2 rounded text-blue-600 focus:ring-blue-500 w-4 h-4">
@@ -308,7 +303,6 @@
                                 </div>
                             </div>
                             
-                            <!-- DYNAMIC CATEGORY LAYER -->
                             <div v-if="!faithMode">
                                 <h5 class="text-[10px] font-bold text-gray-400 uppercase mb-2 tracking-wider flex justify-between">{{ t.layerCategory }} (Color) <div><button @click="resetColors" class="text-gray-400 hover:text-red-500 mr-2">↺</button><button @click="toggleAll('cats')" class="text-blue-500 hover:underline">All</button></div></h5>
                                 <div class="space-y-1">
@@ -320,7 +314,6 @@
                                 </div>
                             </div>
                             
-                            <!-- FAITH SUB-CATEGORY LAYER -->
                             <div v-else class="bg-blue-50 p-2 rounded border border-blue-100 mb-2">
                                 <h5 class="text-[10px] font-bold text-blue-600 uppercase mb-2 tracking-wider flex justify-between">Faith Types (Sub-Cat) <button @click="toggleAll('faith')" class="text-blue-500 hover:underline">All</button></h5>
                                 <div class="space-y-1">
@@ -354,7 +347,6 @@
             </div>
         </main>
 
-        <!-- Detail Modal -->
         <div id="detail-modal" style="display: none;" v-show="selectedItem" class="fixed inset-0 z-[3000] overflow-y-auto" role="dialog">
             <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                 <div class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity" @click="closeModal"></div>
@@ -375,11 +367,9 @@
                              <span v-if="getCategoryInfo(selectedItem)" :class="`inline-flex items-center px-2 py-1 rounded text-xs font-medium border`" :style="getCategoryInfo(selectedItem).style">{{ getCategoryInfo(selectedItem).label }} - {{ getSubCategoryLabel(selectedItem) }}</span>
                         </div>
 
-                        <!-- 轮播组件 (优化版) -->
                         <div class="mb-4 relative group bg-gray-100 rounded-lg overflow-hidden border border-gray-200 flex items-center justify-center" style="min-height: 200px; height: 320px;">
                             <div v-if="selectedItem.image_paths && selectedItem.image_paths.length > 0" class="w-full h-full flex items-center justify-center bg-gray-50 relative">
                                 
-                                <!-- Loading Spinner -->
                                 <div v-if="isImageLoading" class="absolute inset-0 flex items-center justify-center z-10 text-blue-500">
                                     <svg class="animate-spin h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -409,11 +399,9 @@
                         <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line bg-gray-50 p-4 rounded">{{ selectedItem.description }}</p>
                     </div>
                     
-                    <!-- Modal Footer -->
                     <div class="bg-gray-100 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
                          <a :href="googleTranslateUrl" target="_blank" class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">🌐 Translate</a>
                          
-                         <!-- 下载所有图片按钮 -->
                          <button v-if="selectedItem && selectedItem.image_paths && selectedItem.image_paths.length > 0" 
                                  type="button" 
                                  @click="downloadImages"
@@ -429,20 +417,15 @@
             </div>
         </div>
 
-        <!-- ★★★ 功能 1：全屏图片灯箱 (Lightbox) - 优化版 ★★★ -->
         <div v-if="isLightboxOpen && selectedItem && selectedItem.image_paths && selectedItem.image_paths.length > 0" 
              class="fixed inset-0 z-[4000] bg-black bg-opacity-95 flex items-center justify-center overflow-hidden"
              @click.self="closeLightbox">
             
-            <!-- 关闭按钮 -->
             <button @click="closeLightbox" class="absolute top-4 right-4 text-white text-4xl hover:text-gray-300 z-[4001]">&times;</button>
             
-            <!-- 左箭头 -->
             <button v-if="selectedItem.image_paths.length > 1" @click.stop="prevImage" class="absolute left-4 top-1/2 -translate-y-1/2 text-white text-5xl hover:text-gray-300 z-[4001] p-4">❮</button>
             
-            <!-- 大图容器 -->
             <div class="relative w-full h-full flex items-center justify-center p-10">
-                <!-- Lightbox Loading Spinner -->
                 <div v-if="isImageLoading" class="absolute inset-0 flex items-center justify-center z-50 text-white">
                     <svg class="animate-spin h-12 w-12" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -457,10 +440,8 @@
                      alt="Full Screen Image">
             </div>
             
-            <!-- 右箭头 -->
             <button v-if="selectedItem.image_paths.length > 1" @click.stop="nextImage" class="absolute right-4 top-1/2 -translate-y-1/2 text-white text-5xl hover:text-gray-300 z-[4001] p-4">❯</button>
             
-            <!-- 底部计数 -->
             <div class="absolute bottom-4 left-1/2 -translate-x-1/2 text-white bg-black/50 px-4 py-1 rounded-full font-mono">
                 {{ currentImageIndex + 1 }} / {{ selectedItem.image_paths.length }}
             </div>
@@ -475,13 +456,13 @@
     const ERA_SHAPES = { Early: "M10,0 A10,10 0 1,1 10,20 A10,10 0 1,1 10,0", Fatimid: "M2,2 H18 V18 H2 Z", Ayyubid: "M10,2 L18,18 H2 Z", Mamluk: "M10,0 L20,10 L10,20 L0,10 Z", Ottoman: "M10,0 L12.5,7.5 H20 L14,12.5 L16,20 L10,15 L4,20 L6,12.5 L0,7.5 H7.5 Z", Modern: "M5,0 L15,0 L20,10 L15,20 L5,20 L0,10 Z" };
     const DEFAULT_COLORS = { Faith: "#8b5cf6", Ruling: "#ef4444", Trade: "#10b981", Leisure: "#ec4899", Living: "#3b82f6", Production: "#f97316" };
     
-    // ★★★ NEW: Faith Sub-Category Colors for the new mode ★★★
+    // Faith Sub-Category Colors
     const FAITH_SUB_COLORS = {
         'Mosque': '#10b981',   // Emerald Green
         'Madrasa': '#3b82f6',  // Blue
         'Tomb': '#8b5cf6',     // Purple
         'Sufi': '#f59e0b',     // Amber/Orange
-        'Kuttab': '#ec4899',   // Pink (Updated from Indigo)
+        'Kuttab': '#ec4899',   // Pink
         'Church': '#ef4444',   // Red
         'Synagogue': '#06b6d4' // Cyan
     };
@@ -507,7 +488,10 @@
             const showParenthesesLayer = ref(false); 
             const showPhotoIcons = ref(false);
             
-            // ★★★ NEW STATE: Faith Mode ★★★
+            // ★★★ MAP LOADING STATE ★★★
+            const isMapLoading = ref(false);
+            
+            // Faith Mode
             const faithMode = ref(false);
 
             const exportIconScale = ref(100); 
@@ -520,19 +504,18 @@
             const selectedEra = ref("");
             const selectedItem = ref(null);
             
-            // 图片浏览与预加载状态
+            // Image loading state
             const currentImageIndex = ref(0);
             const isImageLoading = ref(true);
 
-            // 灯箱状态
+            // Lightbox state
             const isLightboxOpen = ref(false);
             
-            // 下载状态
+            // Download state
             const downloading = ref(false);
 
             const customColors = reactive({ ...DEFAULT_COLORS });
             const visibleLayers = reactive({ eras: Object.keys(ERA_SHAPES), cats: Object.keys(DEFAULT_COLORS) });
-            // ★★★ NEW STATE: Visible Sub-Layers for Faith Mode ★★★
             const visibleFaithLayers = ref(Object.keys(FAITH_SUB_COLORS));
 
             const coordinates = ref({ ...SAVED_COORDINATES });
@@ -557,7 +540,6 @@
             const getCategoryInfo = (item) => { 
                 const subKey = identifySubCategory(item); 
                 const mainKey = getMainCategoryBySub(subKey); 
-                // Special handling for List View badges if Faith Mode is active logic (optional, but keep simple for now)
                 const color = customColors[mainKey] || '#666'; 
                 return { key: mainKey, style: { color: color, backgroundColor: `${color}15`, borderColor: `${color}40` }, label: t.value[`major${mainKey}`] }; 
             };
@@ -567,10 +549,11 @@
             const hasFilters = computed(() => searchId.value||searchMap.value||searchKeyword.value||selectedCategory.value||selectedEra.value||selectedSubCategory.value);
 
             const selectItemToMap = (item) => { if (itemToMap.value && itemToMap.value.id === item.id) itemToMap.value = null; else itemToMap.value = item; };
-            // --- 找到原本的 switchView 函数，替换为下面这个简化版 ---
+            
+            // ★★★ UPDATED SWITCHVIEW ★★★
             const switchView = (v) => { 
                 currentView.value = v; 
-                // 切换时通知地图重新核对尺寸（防止因为窗口缩放导致的显示错误），但不需要重新加载了
+                // Only invalidate size, do not init map again
                 if(v === 'map' && mapInstance) {
                     nextTick(() => { 
                         mapInstance.invalidateSize(); 
@@ -578,20 +561,59 @@
                 }
             };
 
-            // --- 在 switchView 下面，添加这个新的 onMounted ---
+            const toggleFullScreen = () => { isFullScreen.value = !isFullScreen.value; nextTick(() => mapInstance && mapInstance.invalidateSize()); };
+            const getSvgIcon = (shapePath, color) => { return `<svg width="20" height="20" viewBox="0 0 20 20" style="filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.4)); overflow: visible;"><path d="${shapePath}" fill="${color}" stroke="white" stroke-width="1.5" /></svg>`; };
+
+            // ★★★ UPDATED LOAD MAP IMAGE ★★★
+            const loadMapImage = (url) => { 
+                isMapLoading.value = true;
+                const img = new Image(); 
+                img.src = url; 
+                img.onload = () => { 
+                    mapError.value = false; 
+                    const b = [[0,0], [img.height, img.width]]; 
+                    if(imageOverlay) mapInstance.removeLayer(imageOverlay); 
+                    imageOverlay = L.imageOverlay(url, b).addTo(mapInstance); 
+                    mapInstance.fitBounds(b); 
+                    renderMarkers(); 
+                    isMapLoading.value = false;
+                }; 
+                img.onerror = () => { 
+                    mapError.value = true;
+                    isMapLoading.value = false;
+                }; 
+            };
+            const loadLocalImage = (e) => { const f=e.target.files[0]; if(f){ const r=new FileReader(); r.onload=ev=>loadMapImage(ev.target.result); r.readAsDataURL(f); } };
+
+            // ★★★ UPDATED INIT MAP (Called on mount) ★★★
+            const initMap = () => { 
+                if(mapInstance) return; 
+                mapInstance = L.map('map-container', { 
+                    crs: L.CRS.Simple, 
+                    minZoom: -4, 
+                    maxZoom: 3, 
+                    zoomControl: false, 
+                    attributionControl: false,
+                    zoomSnap: 0.5 
+                }); 
+                L.control.zoom({ position: 'topright' }).addTo(mapInstance); 
+                loadMapImage('map.jpg'); 
+                mapInstance.on('click', (e) => { 
+                    if(!isEditMode.value || !itemToMap.value) return; 
+                    coordinates.value[itemToMap.value.id] = [e.latlng.lat, e.latlng.lng]; 
+                    renderMarkers(); 
+                    itemToMap.value = null; 
+                }); 
+            };
+
+            // ★★★ MOUNTED HOOK (Preload) ★★★
             onMounted(() => {
-                // 页面加载后稍微延迟一点点初始化地图，避免阻塞主线程渲染列表
                 setTimeout(() => {
                     initMap();
                 }, 100);
             });
-            const toggleFullScreen = () => { isFullScreen.value = !isFullScreen.value; nextTick(() => mapInstance && mapInstance.invalidateSize()); };
-            const getSvgIcon = (shapePath, color) => { return `<svg width="20" height="20" viewBox="0 0 20 20" style="filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.4)); overflow: visible;"><path d="${shapePath}" fill="${color}" stroke="white" stroke-width="1.5" /></svg>`; };
 
-            const initMap = () => { mapInstance = L.map('map-container', { crs: L.CRS.Simple, minZoom: -4, maxZoom: 3, zoomControl: false, attributionControl: false }); L.control.zoom({ position: 'topright' }).addTo(mapInstance); loadMapImage('map.jpg'); mapInstance.on('click', (e) => { if(!isEditMode.value || !itemToMap.value) return; coordinates.value[itemToMap.value.id] = [e.latlng.lat, e.latlng.lng]; renderMarkers(); itemToMap.value = null; }); };
-            const loadMapImage = (url) => { const img = new Image(); img.src = url; img.onload = () => { mapError.value = false; const b = [[0,0], [img.height, img.width]]; if(imageOverlay) mapInstance.removeLayer(imageOverlay); imageOverlay = L.imageOverlay(url, b).addTo(mapInstance); mapInstance.fitBounds(b); renderMarkers(); }; img.onerror = () => mapError.value = true; };
-            const loadLocalImage = (e) => { const f=e.target.files[0]; if(f){ const r=new FileReader(); r.onload=ev=>loadMapImage(ev.target.result); r.readAsDataURL(f); } };
-
+            // ★★★ UPDATED RENDER MARKERS (Photo Logic) ★★★
             const renderMarkers = () => {
                 if (!mapInstance) return;
                 if (markersLayer) mapInstance.removeLayer(markersLayer);
@@ -608,7 +630,7 @@
 
                         let color = '#999';
 
-                        // 1. 颜色判断逻辑 (保持不变)
+                        // 1. Color Logic
                         if (faithMode.value) {
                             const nameLower = item.name.toLowerCase();
                             const descLower = (item.description || "").toLowerCase();
@@ -627,31 +649,22 @@
                         const hasParentheses = item.id.includes('(') || item.id.includes(')');
                         if (showParenthesesLayer.value && hasParentheses) { color = '#000000'; }
                         
-                        // ============================================================
-                        // 🔥🔥🔥 修改开始：照片模式下的视觉处理 🔥🔥🔥
-                        // ============================================================
-                        
+                        // ★★★ PHOTO VISUALIZATION LOGIC ★★★
                         const hasPhotos = item.image_paths && item.image_paths.length > 0;
                         let markerStyle = '';
 
-                        // 核心逻辑：如果开启了Photo模式，且该点【没有】照片
-                        // 则添加 CSS滤镜：大幅降低饱和度(变灰)，降低透明度(变淡)
+                        // If Photo mode is ON and marker has NO photos -> desaturate & fade
                         if (showPhotoIcons.value && !hasPhotos) {
-                            markerStyle = 'filter: saturate(0.2) opacity(0.5);'; 
+                            markerStyle = 'filter: saturate(0.0) opacity(0.4);'; 
                         }
 
-                        // 将 style 应用到外层 div
                         let markerHtml = `<div class="relative" style="${markerStyle}">${getSvgIcon(shape, color)}`;
                         
-                        // 只有有照片时，才显示相机小图标
                         if (showPhotoIcons.value && hasPhotos) {
                             markerHtml += `<div class="photo-badge">📷</div>`;
                         }
                         markerHtml += `</div>`;
-
-                        // ============================================================
-                        // 🔥🔥🔥 修改结束 🔥🔥🔥
-                        // ============================================================
+                        // ★★★ END LOGIC ★★★
 
                         const icon = L.divIcon({ html: markerHtml, className: 'custom-marker', iconSize: [20, 20], iconAnchor: [10, 10] });
                         const marker = L.marker(coords, { icon: icon, draggable: isEditMode.value });
@@ -668,7 +681,6 @@
             
             const exportFullMap = async () => { if (!imageOverlay || !imageOverlay._image) { alert("Map not loaded."); return; } const originalImg = imageOverlay._image; const width = originalImg.naturalWidth; const height = originalImg.naturalHeight; if (width === 0 || height === 0) return; const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d'); ctx.drawImage(originalImg, 0, 0); const baseScale = Math.max(1.0, width / 2500); const finalIconScale = baseScale * (exportIconScale.value / 100); const finalTextScale = baseScale * (exportTextScale.value / 100); ctx.textAlign = "center"; ctx.textBaseline = "top"; filteredData.value.forEach(item => { const coords = coordinates.value[item.id]; if (!coords) return; const eraKey = getEraCategory(item.dating); const subKey = identifySubCategory(item); const mainKey = getMainCategoryBySub(subKey); if (!visibleLayers.eras.includes(eraKey)) return; 
             
-            // Export Logic also needs to respect Faith Mode and Hybrid Logic
             let color = '#999';
             if (faithMode.value) {
                 const nameLower = item.name.toLowerCase();
@@ -698,7 +710,6 @@
             };
             const resetColors = () => { Object.assign(customColors, DEFAULT_COLORS); };
             
-            // Watch 'faithMode' and 'visibleFaithLayers'
             watch([filteredData, isEditMode, visibleLayers, customColors, showParenthesesLayer, showMapLabels, mapLabelFontSize, showPhotoIcons, faithMode, visibleFaithLayers], () => { if(currentView.value === 'map') renderMarkers(); }, { deep: true });
             
             const exportCoordinates = () => { navigator.clipboard.writeText(JSON.stringify(coordinates.value, null, 4)).then(() => alert("Coordinates copied to clipboard!")); };
@@ -711,7 +722,6 @@
 
             // ============ 图片优化相关逻辑 ============
             
-            // 预加载功能
             const preloadImages = (urls) => {
                 if (!urls || urls.length === 0) return;
                 urls.forEach(url => {
@@ -720,12 +730,10 @@
                 });
             };
 
-            // 当图片标签触发 @load 事件时
             const onImageLoad = () => {
                 isImageLoading.value = false;
             };
 
-            // 监听选中项变化，重置索引并预加载
             watch(selectedItem, (newItem) => { 
                 currentImageIndex.value = 0; 
                 isImageLoading.value = true;
@@ -747,11 +755,9 @@
                 } 
             };
             
-            // 灯箱
             const openLightbox = () => { isLightboxOpen.value = true; };
             const closeLightbox = () => { isLightboxOpen.value = false; };
             
-            // 下载功能
             const downloadImages = async () => {
                 if (!selectedItem.value || !selectedItem.value.image_paths || selectedItem.value.image_paths.length === 0) return;
                 
@@ -793,17 +799,12 @@
                 deleteMarker, exportFullMap, customColors, resetColors,
                 exportIconScale, exportTextScale, showParenthesesLayer,
                 showMapLabels, mapLabelFontSize,
-                
-                // 图片相关
                 currentImageIndex, nextImage, prevImage, showPhotoIcons,
-                isImageLoading, onImageLoad, // 导出新变量
-                // 灯箱
-                isLightboxOpen, openLightbox, closeLightbox,
-                // 下载
+                isImageLoading, onImageLoad, isLightboxOpen, openLightbox, closeLightbox,
                 downloadImages, downloading,
-
-                // ★★★ NEW EXPORTS ★★★
-                faithMode, faithSubColors: FAITH_SUB_COLORS, visibleFaithLayers
+                faithMode, faithSubColors: FAITH_SUB_COLORS, visibleFaithLayers,
+                // New Export
+                isMapLoading
             };
         }
     }).mount('#app');
