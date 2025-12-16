@@ -619,7 +619,7 @@
                         // 核心逻辑：如果开启了Photo模式，且该点【没有】照片
                         // 则添加 CSS滤镜：大幅降低饱和度(变灰)，降低透明度(变淡)
                         if (showPhotoIcons.value && !hasPhotos) {
-                            markerStyle = 'filter: saturate(0.0) opacity(0.4);'; 
+                            markerStyle = 'filter: saturate(0.5) opacity(0.7);'; 
                         }
 
                         // 将 style 应用到外层 div
