@@ -565,7 +565,12 @@ const FULL_DATABASE = [
             "images/15_Al-Hakim%20mosque-989/IMG_2911.jpeg",
             "images/15_Al-Hakim%20mosque-989/IMG_2912.jpeg",
             "images/15_Al-Hakim%20mosque-989/IMG_2913.jpeg",
-            "images/15_Al-Hakim%20mosque-989/IMG_2914.jpeg"
+            "images/15_Al-Hakim%20mosque-989/IMG_2914.jpeg",
+            "images/15_Al-Hakim%20mosque-989/ScreenShot_2025-12-16_173214_557.png",
+            "images/15_Al-Hakim%20mosque-989/ScreenShot_2025-12-16_173230_323.png",
+            "images/15_Al-Hakim%20mosque-989/ScreenShot_2025-12-16_173239_488.png",
+            "images/15_Al-Hakim%20mosque-989/ScreenShot_2025-12-16_173249_929.png",
+            "images/15_Al-Hakim%20mosque-989/ScreenShot_2025-12-16_173305_228.png"
         ]
     },
     {
@@ -710,7 +715,9 @@ const FULL_DATABASE = [
         "map_sheet": "18 and 19",
         "dating": "AH 519 / AD 1125",
         "description": "Founded by al-Ma’mun al-Bata‘ihi, the vizier of the Fatimid khalif al-Amir, this tiny mosque (nicknamed ‘the Moonlit’), has generated a considerable body of literature, not least because it was the first mosque in Cairo to have dual orientation: i.e., to the street on the outside and to the qibla within. It also has a remarkable decorated façade with a complex iconography related to Isma‘ili Shi‘a doctrine. The open sahn is surrounded by keel-arched arcades, supported by reused marble columns or, at the corners, by brick piers. Decoration is in the form of stucco inscription bands, which run along each arch, alternating with medallions. Most of what can be seen of the decoration today is a modern replacement. The building has undergone three major restorations in its history. The first of these was carried out by the amir Yalbugha (a mamluk of Barquq) in AD 1396. The second was executed by the Comité under the direction of Max Herz at the beginning of the twentieth century (including the partial clearance of encroachments from both inside and outside the mosque). The last restoration was that of the Bohra Isma‘ili sect in the 1990s, during which the southern half of the façade was rebuilt and much of the mosque’s decoration replaced. 这座小巧的清真寺（昵称“月光”，al-Aqmar）由法蒂玛哈里发阿米尔的维齐尔马蒙·巴塔伊希（al-Ma’mun al-Bata‘ihi）建立，它产生了大量的文献，不仅因为它是开罗第一座具有双重朝向（即外部面向街道，内部面向麦加基布拉）的清真寺。它还有一个非凡的装饰立面，带有与伊斯玛仪什叶派教义相关的复杂图像。开放的庭院被龙骨拱拱廊环绕，由重新利用的大理石柱支撑，或在角落由砖墩支撑。装饰形式为沿着每个拱门延伸的灰泥铭文带，与圆章交替。今天所能看到的大部分装饰都是现代替代品。该建筑在历史上经历了三次重大修复。第一次由埃米尔亚尔布加（Yalbugha，巴尔库克的马穆鲁克）于公元1396年进行。第二次由委员会在Max Herz的指导下于20世纪初执行（包括部分清除清真寺内外的侵占物）。最后一次修复是博拉伊斯玛仪派在1990年代进行的，期间重建了立面的南半部分，并更换了清真寺的大部分装饰。",
-        "image_paths": []
+        "image_paths": [
+            "images/33_Mosque%20of%20al-Aqmar/ScreenShot_2025-12-16_173737_782.png"
+        ]
     },
     {
         "id": "34",
@@ -1292,7 +1299,8 @@ const FULL_DATABASE = [
             "images/97_Al-azhar%20mosque-970/IMG_2314.jpeg",
             "images/97_Al-azhar%20mosque-970/IMG_2315.jpeg",
             "images/97_Al-azhar%20mosque-970/IMG_2316.jpeg",
-            "images/97_Al-azhar%20mosque-970/IMG_2355.jpeg"
+            "images/97_Al-azhar%20mosque-970/IMG_2355.jpeg",
+            "images/97_Al-azhar%20mosque-970/ScreenShot_2025-12-16_173521_921.png"
         ]
     },
     {

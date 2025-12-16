@@ -590,31 +590,17 @@
 
                         let color = '#999';
 
+                        // 1. 颜色判断逻辑 (保持不变)
                         if (faithMode.value) {
-                            // ★★★ MODIFIED FAITH LOGIC ★★★
-                            // 1. Check if it's implicitly a Kuttab (even if it's categorized as Leisure/Sabil)
-                            // We check if name or description contains "kuttab"
                             const nameLower = item.name.toLowerCase();
                             const descLower = (item.description || "").toLowerCase();
                             const isHybridKuttab = (mainKey === 'Leisure' || subKey === 'Sabil') && (nameLower.includes('kuttab') || descLower.includes('kuttab'));
-
-                            // 2. Determine effective sub-category for filtering/coloring
                             let effectiveSubKey = subKey;
-                            if (isHybridKuttab) {
-                                effectiveSubKey = 'Kuttab'; // Force treat as Kuttab
-                            }
-
-                            // 3. Main Filter: Must be Faith category OR be a Hybrid Kuttab
+                            if (isHybridKuttab) effectiveSubKey = 'Kuttab';
                             if (mainKey !== 'Faith' && !isHybridKuttab) return;
-
-                            // 4. Sub-category Visibility Check
                             if (!visibleFaithLayers.value.includes(effectiveSubKey)) return;
-
-                            // 5. Apply Color
                             color = FAITH_SUB_COLORS[effectiveSubKey] || '#666';
-
                         } else {
-                            // Normal Mode
                             if (!visibleLayers.cats.includes(mainKey)) return;
                             color = customColors[mainKey] || '#999';
                         }
@@ -623,11 +609,31 @@
                         const hasParentheses = item.id.includes('(') || item.id.includes(')');
                         if (showParenthesesLayer.value && hasParentheses) { color = '#000000'; }
                         
-                        let markerHtml = `<div class="relative">${getSvgIcon(shape, color)}`;
-                        if (showPhotoIcons.value && item.image_paths && item.image_paths.length > 0) {
+                        // ============================================================
+                        // 🔥🔥🔥 修改开始：照片模式下的视觉处理 🔥🔥🔥
+                        // ============================================================
+                        
+                        const hasPhotos = item.image_paths && item.image_paths.length > 0;
+                        let markerStyle = '';
+
+                        // 核心逻辑：如果开启了Photo模式，且该点【没有】照片
+                        // 则添加 CSS滤镜：大幅降低饱和度(变灰)，降低透明度(变淡)
+                        if (showPhotoIcons.value && !hasPhotos) {
+                            markerStyle = 'filter: saturate(0.0) opacity(0.4);'; 
+                        }
+
+                        // 将 style 应用到外层 div
+                        let markerHtml = `<div class="relative" style="${markerStyle}">${getSvgIcon(shape, color)}`;
+                        
+                        // 只有有照片时，才显示相机小图标
+                        if (showPhotoIcons.value && hasPhotos) {
                             markerHtml += `<div class="photo-badge">📷</div>`;
                         }
                         markerHtml += `</div>`;
+
+                        // ============================================================
+                        // 🔥🔥🔥 修改结束 🔥🔥🔥
+                        // ============================================================
 
                         const icon = L.divIcon({ html: markerHtml, className: 'custom-marker', iconSize: [20, 20], iconAnchor: [10, 10] });
                         const marker = L.marker(coords, { icon: icon, draggable: isEditMode.value });
