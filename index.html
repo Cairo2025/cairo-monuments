@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v9.9 Fast Load)</title>
+    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v10.0 WebP Map)</title>
     
     <!-- 1. 引入基础库 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -246,7 +246,8 @@
                             <label class="inline-flex items-center cursor-pointer">
                                 <input type="checkbox" v-model="isEditMode" class="sr-only peer">
                                 <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-500"></div>
-                                <span class="ms-2 text-xs font-bold text-gray-700 select-none">✏️ {{ t.editMode }}</span>
+                                <span class="ms-2 text-xs font-bold text-gray-700 select-none">✏️ {{ t.editMode }}
+</span>
                             </label>
                             <button v-if="isEditMode" @click="exportCoordinates" class="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 shadow">💾 {{ t.exportData }}</button>
                         </div>
@@ -516,7 +517,9 @@
             const toggleFullScreen = () => { isFullScreen.value = !isFullScreen.value; nextTick(() => mapInstance && mapInstance.invalidateSize()); };
             const getSvgIcon = (shapePath, color) => { return `<svg width="20" height="20" viewBox="0 0 20 20" style="filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.4)); overflow: visible;"><path d="${shapePath}" fill="${color}" stroke="white" stroke-width="1.5" /></svg>`; };
 
-            const initMap = () => { mapInstance = L.map('map-container', { crs: L.CRS.Simple, minZoom: -4, maxZoom: 3, zoomControl: false, attributionControl: false }); L.control.zoom({ position: 'topright' }).addTo(mapInstance); loadMapImage('map.jpg'); mapInstance.on('click', (e) => { if(!isEditMode.value || !itemToMap.value) return; coordinates.value[itemToMap.value.id] = [e.latlng.lat, e.latlng.lng]; renderMarkers(); itemToMap.value = null; }); };
+            // ★★★ 这里已经改为加载 map.webp ★★★
+            const initMap = () => { mapInstance = L.map('map-container', { crs: L.CRS.Simple, minZoom: -4, maxZoom: 3, zoomControl: false, attributionControl: false }); L.control.zoom({ position: 'topright' }).addTo(mapInstance); loadMapImage('map.webp'); mapInstance.on('click', (e) => { if(!isEditMode.value || !itemToMap.value) return; coordinates.value[itemToMap.value.id] = [e.latlng.lat, e.latlng.lng]; renderMarkers(); itemToMap.value = null; }); };
+            
             const loadMapImage = (url) => { const img = new Image(); img.src = url; img.onload = () => { mapError.value = false; const b = [[0,0], [img.height, img.width]]; if(imageOverlay) mapInstance.removeLayer(imageOverlay); imageOverlay = L.imageOverlay(url, b).addTo(mapInstance); mapInstance.fitBounds(b); renderMarkers(); }; img.onerror = () => mapError.value = true; };
             const loadLocalImage = (e) => { const f=e.target.files[0]; if(f){ const r=new FileReader(); r.onload=ev=>loadMapImage(ev.target.result); r.readAsDataURL(f); } };
 
