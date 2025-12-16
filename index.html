@@ -1,6 +1,176 @@
-</span>
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cairo Urban History Map</title>
+    
+    <!-- CSS Dependencies -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    
+    <!-- JS Dependencies -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    
+    <!-- Load Data (Assumed to be in data.js) -->
+    <script src="data.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;700&display=swap');
+        body { font-family: 'Noto Sans SC', sans-serif; overflow: hidden; }
+        
+        /* Map Container */
+        #map-container { height: 100vh; width: 100vw; background: #e5e7eb; z-index: 1; }
+        
+        /* Custom Scrollbar */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Marker Styles */
+        .custom-marker { background: transparent; border: none; }
+        .photo-badge {
+            position: absolute; bottom: -5px; right: -5px;
+            font-size: 10px; background: white; border-radius: 50%;
+            width: 14px; height: 14px; line-height: 14px; text-align: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3); z-index: 10;
+        }
+        
+        /* Tooltip Styles */
+        .map-label-tooltip {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 2px 5px;
+            font-size: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            white-space: nowrap;
+        }
+        
+        /* Animation */
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+    </style>
+</head>
+<body>
+    <div id="app" class="h-screen w-screen relative overflow-hidden text-gray-800">
+
+        <!-- Sidebar / List View -->
+        <aside class="absolute top-0 left-0 h-full bg-white z-[2000] shadow-2xl transition-all duration-300 flex flex-col border-r border-gray-200"
+               :class="[currentView === 'list' ? 'w-full md:w-[480px]' : 'w-0 overflow-hidden']">
+            
+            <div class="p-4 border-b bg-gray-50 flex-none relative">
+                <div class="flex justify-between items-center mb-4">
+                    <h1 class="text-xl font-bold text-gray-800 tracking-tight">🏰 Cairo Map</h1>
+                    <div class="flex gap-2">
+                        <button @click="toggleLang" class="text-xs font-mono border px-2 py-1 rounded hover:bg-gray-200 transition">{{ currentLang.toUpperCase() }}</button>
+                        <button @click="switchView('map')" class="bg-blue-600 text-white px-3 py-1 rounded shadow hover:bg-blue-700 transition text-sm flex items-center gap-1">🗺️ {{ t.viewMap }}</button>
+                    </div>
+                </div>
+
+                <!-- Search Controls -->
+                <div class="space-y-3">
+                    <div class="flex gap-2">
+                        <input v-model="searchId" type="text" :placeholder="t.labelId" class="w-20 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm font-mono bg-white">
+                        <input v-model="searchMap" type="text" :placeholder="t.labelMap" class="w-20 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm font-mono bg-white">
+                        <input v-model="searchKeyword" type="text" :placeholder="t.placeholderKeyword" class="flex-grow px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm bg-white">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <select v-model="selectedEra" class="w-full px-3 py-2 border rounded-lg text-sm bg-white cursor-pointer hover:border-blue-400 focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none">
+                            <option value="">{{ t.eraAll }}</option>
+                            <option v-for="era in eraList" :key="era.value" :value="era.value">{{ era.label }}</option>
+                        </select>
+                        <select v-model="selectedCategory" class="w-full px-3 py-2 border rounded-lg text-sm bg-white cursor-pointer hover:border-blue-400 focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none">
+                            <option value="">{{ t.catAll }}</option>
+                            <option v-for="cat in categoryList" :key="cat.value" :value="cat.value">{{ cat.label }}</option>
+                        </select>
+                    </div>
+                    
+                    <div v-if="selectedCategory && subCategoryList.length > 0" class="w-full">
+                        <select v-model="selectedSubCategory" class="w-full px-3 py-2 border rounded-lg text-sm bg-blue-50 cursor-pointer border-blue-200 text-blue-800 focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none">
+                            <option value="">{{ t.subCatAll }}</option>
+                            <option v-for="sub in subCategoryList" :key="sub.value" :value="sub.value">{{ sub.label }}</option>
+                        </select>
+                    </div>
+
+                    <div class="flex justify-between items-center pt-2">
+                        <span class="text-xs font-medium text-gray-500">{{ t.foundPrefix }} <strong class="text-blue-600 text-base">{{ filteredData.length }}</strong> {{ t.foundSuffix }}</span>
+                        <button @click="resetSearch" class="text-xs text-gray-400 hover:text-red-500 underline decoration-dotted">{{ t.reset }}</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- List Content -->
+            <div class="flex-grow overflow-y-auto p-2 space-y-2 bg-gray-100 no-scrollbar">
+                <div v-if="filteredData.length === 0" class="text-center py-10 text-gray-400 flex flex-col items-center">
+                    <span class="text-4xl mb-2">🔍</span>
+                    <span>{{ t.noResult }}</span>
+                </div>
+                <div v-for="item in filteredData" :key="item.id" 
+                     class="bg-white rounded-lg shadow-sm border border-gray-100 p-3 hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
+                     @click="openModal(item)">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="font-mono text-xs font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border">#{{ item.id }}</span>
+                                <h3 class="font-bold text-gray-800 text-sm leading-tight group-hover:text-blue-600 transition-colors">{{ item.name }}</h3>
+                            </div>
+                            <div class="flex flex-wrap gap-1 mt-2">
+                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-50 text-gray-600 border border-gray-100">📅 {{ item.dating }}</span>
+                                <span v-if="getCategoryInfo(item)" :style="getCategoryInfo(item).style" class="text-[10px] px-1.5 py-0.5 rounded border font-medium">
+                                    {{ getCategoryInfo(item).label }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                             <span v-if="item.image_paths && item.image_paths.length" class="text-xs text-gray-400" title="Has Photos">📷</span>
+                             <button @click.stop="selectItemToMap(item); switchView('map')" 
+                                     class="p-1.5 rounded-full hover:bg-blue-50 text-gray-300 hover:text-blue-600 transition"
+                                     :title="coordinates[item.id] ? 'Locate on Map' : 'Not mapped yet'">
+                                 <span v-if="coordinates[item.id]">📍</span>
+                                 <span v-else class="text-xs opacity-50">⚪</span>
+                             </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Map View -->
+        <main class="h-full w-full relative">
+            <div class="absolute inset-0">
+                <!-- Map UI Controls -->
+                <div class="absolute top-4 left-4 z-[1000] flex flex-col gap-2 transition-transform duration-300" :class="{'translate-x-[-200%]': hideMapControls}">
+                    <button @click="switchView('list')" class="bg-white hover:bg-gray-50 text-gray-800 px-4 py-2 rounded-lg shadow-lg border border-gray-200 font-bold text-sm flex items-center gap-2 transition transform hover:scale-105">
+                        <span>☰ {{ t.viewList }}</span>
+                    </button>
+                    
+                    <div class="bg-white/90 backdrop-blur rounded-lg shadow border px-3 py-2 flex flex-col gap-2 w-44">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold text-gray-600">{{ t.editMode }}</span>
+                            <div class="relative inline-block w-8 h-4 align-middle select-none transition duration-200 ease-in">
+                                <input type="checkbox" name="toggle" id="edit-toggle" v-model="isEditMode" class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300 left-0 top-0 transition-all duration-300" :class="{'right-0 border-blue-600': isEditMode}"/>
+                                <label for="edit-toggle" class="toggle-label block overflow-hidden h-4 rounded-full bg-gray-300 cursor-pointer" :class="{'bg-blue-200': isEditMode}"></label>
+                            </div>
+                        </div>
+                        
+                        <div v-if="isEditMode && itemToMap" class="text-xs bg-yellow-50 p-2 rounded border border-yellow-200 text-yellow-800 animate-pulse">
+                            📍 Click map to place: <br><strong>#{{ itemToMap.id }} {{ itemToMap.name }}</strong>
+                        </div>
+
+                        <div class="border-t pt-2 mt-1 space-y-1">
+                            <label class="flex items-center text-xs cursor-pointer">
+                                <input type="checkbox" v-model="showMapLabels" class="mr-1.5 rounded text-blue-600">
+                                <span>Show Labels</span>
                             </label>
-                            <button v-if="isEditMode" @click="exportCoordinates" class="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 shadow">💾 {{ t.exportData }}</button>
+                            <label class="flex items-center text-xs cursor-pointer">
+                                <input type="checkbox" v-model="showPhotoIcons" class="mr-1.5 rounded text-blue-600">
+                                <span>📷 Photo Icons</span>
+                            </label>
+                            <button v-if="isEditMode" @click="exportCoordinates" class="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 shadow w-full mt-1">💾 {{ t.exportData }}</button>
                         </div>
                     </div>
 
@@ -8,12 +178,12 @@
                     <div class="bg-white/90 backdrop-blur rounded-lg shadow border px-3 py-2 flex flex-col gap-1 w-44">
                         <div class="flex items-center gap-2">
                             <span class="text-[10px] font-bold text-gray-500 uppercase w-8">Icon</span>
-                            <input type="range" v-model.number="exportIconScale" min="20" max="300" step="10" class="flex-grow">
+                            <input type="range" v-model.number="exportIconScale" min="20" max="300" step="10" class="flex-grow h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer">
                             <span class="text-[10px] font-mono text-blue-600 w-8 text-right">{{ exportIconScale }}%</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-[10px] font-bold text-gray-500 uppercase w-8">Text</span>
-                            <input type="range" v-model.number="exportTextScale" min="0" max="300" step="10" class="flex-grow">
+                            <input type="range" v-model.number="exportTextScale" min="0" max="300" step="10" class="flex-grow h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer">
                             <span class="text-[10px] font-mono text-blue-600 w-8 text-right">{{ exportTextScale }}%</span>
                         </div>
                     </div>
@@ -50,7 +220,7 @@
                                 <div class="space-y-1">
                                     <label v-for="(color, catKey) in customColors" :key="catKey" class="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
                                         <input type="checkbox" v-model="visibleLayers.cats" :value="catKey" class="mr-2 rounded text-blue-600 focus:ring-blue-500">
-                                        <input type="color" v-model="customColors[catKey]" class="color-picker">
+                                        <input type="color" v-model="customColors[catKey]" class="color-picker w-4 h-4 p-0 border-none mr-2">
                                         {{ t['major'+catKey] || catKey }}
                                     </label>
                                 </div>
@@ -71,6 +241,7 @@
                     <div class="bg-white p-8 rounded-xl shadow-xl text-center max-w-md">
                         <div class="text-4xl mb-4">🗺️</div>
                         <h3 class="text-xl font-bold mb-2">Map Image Not Found</h3>
+                        <p class="text-sm text-gray-500 mb-4">Please ensure 'map.webp' is in the folder or upload one.</p>
                         <input type="file" accept="image/*" @change="loadLocalImage" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
                     </div>
                 </div>
@@ -98,11 +269,10 @@
                              <span v-if="getCategoryInfo(selectedItem)" :class="`inline-flex items-center px-2 py-1 rounded text-xs font-medium border`" :style="getCategoryInfo(selectedItem).style">{{ getCategoryInfo(selectedItem).label }} - {{ getSubCategoryLabel(selectedItem) }}</span>
                         </div>
 
-                        <!-- 轮播组件 (优化版) -->
+                        <!-- Image Carousel -->
                         <div class="mb-4 relative group bg-gray-100 rounded-lg overflow-hidden border border-gray-200 flex items-center justify-center" style="min-height: 200px; height: 320px;">
                             <div v-if="selectedItem.image_paths && selectedItem.image_paths.length > 0" class="w-full h-full flex items-center justify-center bg-gray-50 relative">
                                 
-                                <!-- Loading Spinner -->
                                 <div v-if="isImageLoading" class="absolute inset-0 flex items-center justify-center z-10 text-blue-500">
                                     <svg class="animate-spin h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -132,47 +302,38 @@
                         <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line bg-gray-50 p-4 rounded">{{ selectedItem.description }}</p>
                     </div>
                     
-                    <!-- Modal Footer -->
                     <div class="bg-gray-100 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
                          <a :href="googleTranslateUrl" target="_blank" class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">🌐 Translate</a>
                          
-                         <!-- 下载所有图片按钮 -->
                          <button v-if="selectedItem && selectedItem.image_paths && selectedItem.image_paths.length > 0" 
                                  type="button" 
                                  @click="downloadImages"
                                  :disabled="downloading"
                                  class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
-                             {{ downloading ? '⏳ Zipping...' : '📦 Download All Images' }}
+                             {{ downloading ? '⏳ Zipping...' : '📦 Download Images' }}
                          </button>
 
                          <button type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 sm:ml-3 sm:w-auto sm:text-sm" @click="closeModal">Close</button>
-                         <button v-if="isEditMode && savedCoordinates[selectedItem.id]" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm" @click="deleteMarker(selectedItem.id)">🗑️ Remove Marker</button>
+                         <button v-if="isEditMode && savedCoordinates[selectedItem.id]" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm" @click="deleteMarker(selectedItem.id)">🗑️ Remove</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- ★★★ 功能 1：全屏图片灯箱 (Lightbox) - 优化版 ★★★ -->
+        <!-- Lightbox -->
         <div v-if="isLightboxOpen && selectedItem && selectedItem.image_paths && selectedItem.image_paths.length > 0" 
              class="fixed inset-0 z-[4000] bg-black bg-opacity-95 flex items-center justify-center overflow-hidden"
              @click.self="closeLightbox">
-            
-            <!-- 关闭按钮 -->
             <button @click="closeLightbox" class="absolute top-4 right-4 text-white text-4xl hover:text-gray-300 z-[4001]">&times;</button>
-            
-            <!-- 左箭头 -->
             <button v-if="selectedItem.image_paths.length > 1" @click.stop="prevImage" class="absolute left-4 top-1/2 -translate-y-1/2 text-white text-5xl hover:text-gray-300 z-[4001] p-4">❮</button>
             
-            <!-- 大图容器 -->
             <div class="relative w-full h-full flex items-center justify-center p-10">
-                <!-- Lightbox Loading Spinner -->
                 <div v-if="isImageLoading" class="absolute inset-0 flex items-center justify-center z-50 text-white">
                     <svg class="animate-spin h-12 w-12" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                 </div>
-
                 <img :src="selectedItem.image_paths[currentImageIndex]" 
                      @load="onImageLoad"
                      v-show="!isImageLoading"
@@ -180,10 +341,7 @@
                      alt="Full Screen Image">
             </div>
             
-            <!-- 右箭头 -->
             <button v-if="selectedItem.image_paths.length > 1" @click.stop="nextImage" class="absolute right-4 top-1/2 -translate-y-1/2 text-white text-5xl hover:text-gray-300 z-[4001] p-4">❯</button>
-            
-            <!-- 底部计数 -->
             <div class="absolute bottom-4 left-1/2 -translate-x-1/2 text-white bg-black/50 px-4 py-1 rounded-full font-mono">
                 {{ currentImageIndex + 1 }} / {{ selectedItem.image_paths.length }}
             </div>
@@ -194,7 +352,7 @@
 <script>
     const { createApp, ref, computed, watch, nextTick, reactive } = Vue;
 
-    // 常量定义
+    // Data Constants
     const ERA_SHAPES = { Early: "M10,0 A10,10 0 1,1 10,20 A10,10 0 1,1 10,0", Fatimid: "M2,2 H18 V18 H2 Z", Ayyubid: "M10,2 L18,18 H2 Z", Mamluk: "M10,0 L20,10 L10,20 L0,10 Z", Ottoman: "M10,0 L12.5,7.5 H20 L14,12.5 L16,20 L10,15 L4,20 L6,12.5 L0,7.5 H7.5 Z", Modern: "M5,0 L15,0 L20,10 L15,20 L5,20 L0,10 Z" };
     const DEFAULT_COLORS = { Faith: "#8b5cf6", Ruling: "#ef4444", Trade: "#10b981", Leisure: "#ec4899", Living: "#3b82f6", Production: "#f97316" };
     const SUB_CATEGORY_OPTIONS = { Ruling: [{ value: 'Gate', label: '城门 (Gate/Bab)' }, { value: 'Wall', label: '城墙 (Wall)' }, { value: 'Tower', label: '塔楼/防御 (Tower)' }, { value: 'Palace', label: '宫殿 (Palace/Qasr/Saraya)' }], Faith: [{ value: 'Mosque', label: '清真寺 (Mosque)' }, { value: 'Madrasa', label: '经学院 (Madrasa)' }, { value: 'Tomb', label: '陵墓/拱北 (Tomb/Mausoleum)' }, { value: 'Sufi', label: '道堂/哈卡 (Zawiya/Khanqah)' }, { value: 'Church', label: '教堂 (Church)' }, { value: 'Synagogue', label: '犹太会堂 (Synagogue)' }, { value: 'Kuttab', label: '古兰经学校 (Kuttab)' }], Trade: [{ value: 'Wikala', label: '商栈 (Wikala)' }, { value: 'Khan', label: '汗/商旅馆 (Khan)' }, { value: 'Market', label: '市场/苏克 (Souq/Badistan)' }], Leisure: [{ value: 'Sabil', label: '公益饮水处 (Sabil)' }, { value: 'Hawd', label: '饮水槽 (Hawd)' }, { value: 'Hammam', label: '公共澡堂 (Hammam)' }, { value: 'Library', label: '图书馆 (Library)' }, { value: 'Garden', label: '花园 (Garden)' }], Living: [{ value: 'House', label: '古宅 (House/Bayt/Manzil)' }, { value: 'Rab', label: '公寓楼 (Rab\')' }, { value: 'Hall', label: '厅堂 (Qa\'a/Maq\'ad)' }], Production: [] };
@@ -211,8 +369,7 @@
             const hideMapControls = ref(false);
             const mapError = ref(false);
             const showLayers = ref(true);
-            const showMapLabels = ref(false); 
-            const mapLabelFontSize = ref(12); 
+            const showMapLabels = ref(false); // Default false to avoid clutter
             const showParenthesesLayer = ref(false); 
             const showPhotoIcons = ref(false);
 
@@ -226,19 +383,19 @@
             const selectedEra = ref("");
             const selectedItem = ref(null);
             
-            // 图片浏览与预加载状态
             const currentImageIndex = ref(0);
             const isImageLoading = ref(true);
-
-            // 灯箱状态
             const isLightboxOpen = ref(false);
-            
-            // 下载状态
             const downloading = ref(false);
 
             const customColors = reactive({ ...DEFAULT_COLORS });
             const visibleLayers = reactive({ eras: Object.keys(ERA_SHAPES), cats: Object.keys(DEFAULT_COLORS) });
-            const coordinates = ref({ ...SAVED_COORDINATES });
+            
+            // Check for data existance
+            const db = (typeof FULL_DATABASE !== 'undefined') ? FULL_DATABASE : [];
+            const savedCoords = (typeof SAVED_COORDINATES !== 'undefined') ? SAVED_COORDINATES : {};
+            const coordinates = ref({ ...savedCoords });
+            
             const itemToMap = ref(null);
             let mapInstance = null;
             let markersLayer = null;
@@ -250,30 +407,43 @@
             const subCategoryList = computed(() => { if (!selectedCategory.value) return []; return SUB_CATEGORY_OPTIONS[selectedCategory.value] || []; });
             watch(selectedCategory, () => { selectedSubCategory.value = ""; });
 
+            // Helper Functions
             const wordToYear = { 'seventh': 600, 'eighth': 700, 'ninth': 800, 'tenth': 900, 'eleventh': 1000, 'twelfth': 1100, 'thirteenth': 1200, 'fourteenth': 1300, 'fifteenth': 1400, 'sixteenth': 1500, 'seventeenth': 1600, 'eighteenth': 1700, 'nineteenth': 1800, 'twentieth': 1900 };
             const getEraCategory = (d) => { if(!d) return 'Modern'; const s=d.toString().toLowerCase(); let y=null; const m=s.match(/AD\s*(\d{3,4})/i)||s.match(/\b(1\d{3}|20\d{2})\b/); if(m) y=parseInt(m[1]||m[0]); else { for(const[w,v]of Object.entries(wordToYear)) if(s.includes(w)&&s.includes('century')) if(!y||v>y) y=v; } if(!y) { if(s.includes('ottoman'))return 'Ottoman'; if(s.includes('mamluk'))return 'Mamluk'; if(s.includes('fatimid'))return 'Fatimid'; if(s.includes('ayyubid'))return 'Ayyubid'; return 'Modern'; } if(y<969)return 'Early'; if(y<1171)return 'Fatimid'; if(y<1250)return 'Ayyubid'; if(y<1517)return 'Mamluk'; if(y<1805)return 'Ottoman'; return 'Modern'; };
-            const getEraLabel = (d) => t.value['era'+getEraCategory(d)];
-            const getShortEra = (dating) => { const label = getEraLabel(dating); if (!label) return ""; return label.split(' (')[0]; }
+            const getShortEra = (dating) => { const label = t.value['era'+getEraCategory(dating)]; return label ? label.split(' (')[0] : ""; };
             const identifySubCategory = (item) => { if (ID_OVERRIDES[item.id]) return ID_OVERRIDES[item.id]; const n = item.name.toLowerCase(); if (n.includes('synagogue') || n.includes('temple')) return 'Synagogue'; if (n.includes('hawd') || n.includes('trough')) return 'Hawd'; if (n.includes('hammam') || n.includes('bath')) return 'Hammam'; if (n.includes('sabil')) return 'Sabil'; if (n.includes('garden')) return 'Garden'; if (n.includes('museum') || n.includes('library')) return 'Library'; if (n.includes('palace') || n.includes('qasr') || n.includes('saraya') || n.includes('musafirkhana')) return 'Palace'; if (n.includes('gate') || n.includes('bab ')) return 'Gate'; if (n.includes('wall') || n.includes('tower') || n.includes('fortification')) return 'Wall'; if (n.includes('wikala') || n.includes('wakala')) return 'Wikala'; if (n.includes('khan ') || n.includes('khan,')) return 'Khan'; if (n.includes('badistan') || n.includes('souq') || n.includes('market') || n.includes('bazaar') || n.includes('qaysariya')) return 'Market'; if (n.includes('mosque') || n.includes('masjid') || n.includes('jami')) return 'Mosque'; if (n.includes('madrasa')) return 'Madrasa'; if (n.includes('tomb') || n.includes('mausoleum') || n.includes('qubba') || n.includes('shrine') || n.includes('turba') || n.includes('mashhad')) return 'Tomb'; if (n.includes('zawiya') || n.includes('khanqah') || n.includes('takiya') || n.includes('ribat')) return 'Sufi'; if (n.includes('church') || n.includes('convent') || n.includes('cathedral')) return 'Church'; if (n.includes('kuttab')) return 'Kuttab'; if (n.includes('house') || n.includes('bayt') || n.includes('manzil') || n.includes('dar ')) return 'House'; if (n.includes('rab\'') || n.includes(' rab ')) return 'Rab'; if (n.includes('qa\'a') || n.includes('maq\'ad') || n.includes('hall')) return 'Hall'; const d = (item.description || "").toLowerCase(); if (d.includes('mosque')) return 'Mosque'; if (d.includes('house')) return 'House'; return null; };
             const getMainCategoryBySub = (subKey) => { if (!subKey) return 'Faith'; for (const [mainKey, options] of Object.entries(SUB_CATEGORY_OPTIONS)) { if (options.find(opt => opt.value === subKey)) return mainKey; } return 'Faith'; };
             const getSubCategoryLabel = (item) => { const subKey = identifySubCategory(item); if (!subKey) return ""; const mainKey = getMainCategoryBySub(subKey); const options = SUB_CATEGORY_OPTIONS[mainKey]; const found = options.find(o => o.value === subKey); return found ? found.label : subKey; };
             const getCategoryInfo = (item) => { const subKey = identifySubCategory(item); const mainKey = getMainCategoryBySub(subKey); const color = customColors[mainKey] || '#666'; return { key: mainKey, style: { color: color, backgroundColor: `${color}15`, borderColor: `${color}40` }, label: t.value[`major${mainKey}`] }; };
 
-            const filteredData = computed(() => { return FULL_DATABASE.filter(item => { if (searchId.value) { if (item.id.toString().toLowerCase() !== searchId.value.trim().toLowerCase()) { return false; } } if (searchMap.value && !item.map_sheet.includes(searchMap.value)) return false; if (searchKeyword.value) { const k = searchKeyword.value.toLowerCase(); if(!item.name.toLowerCase().includes(k)) return false; } if (selectedEra.value && getEraCategory(item.dating)!==selectedEra.value) return false; const subKey = identifySubCategory(item); const mainKey = getMainCategoryBySub(subKey); if (selectedCategory.value && mainKey !== selectedCategory.value) return false; if (selectedSubCategory.value && subKey !== selectedSubCategory.value) return false; return true; }); });
-            const unmappedData = computed(() => filteredData.value.filter(i => !coordinates.value[i.id]));
-            const hasFilters = computed(() => searchId.value||searchMap.value||searchKeyword.value||selectedCategory.value||selectedEra.value||selectedSubCategory.value);
-
+            const filteredData = computed(() => { return db.filter(item => { if (searchId.value && item.id.toString().toLowerCase() !== searchId.value.trim().toLowerCase()) return false; if (searchMap.value && !item.map_sheet.includes(searchMap.value)) return false; if (searchKeyword.value && !item.name.toLowerCase().includes(searchKeyword.value.toLowerCase())) return false; if (selectedEra.value && getEraCategory(item.dating)!==selectedEra.value) return false; const subKey = identifySubCategory(item); const mainKey = getMainCategoryBySub(subKey); if (selectedCategory.value && mainKey !== selectedCategory.value) return false; if (selectedSubCategory.value && subKey !== selectedSubCategory.value) return false; return true; }); });
+            
             const selectItemToMap = (item) => { if (itemToMap.value && itemToMap.value.id === item.id) itemToMap.value = null; else itemToMap.value = item; };
             const switchView = (v) => { currentView.value = v; if(v === 'map') nextTick(() => { if(!mapInstance) initMap(); else mapInstance.invalidateSize(); }); };
             const toggleFullScreen = () => { isFullScreen.value = !isFullScreen.value; nextTick(() => mapInstance && mapInstance.invalidateSize()); };
-            const getSvgIcon = (shapePath, color) => { return `<svg width="20" height="20" viewBox="0 0 20 20" style="filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.4)); overflow: visible;"><path d="${shapePath}" fill="${color}" stroke="white" stroke-width="1.5" /></svg>`; };
+            
+            // Fixed getSvgIcon to prevent HTML injection issues
+            const getSvgIcon = (shapePath, color) => { 
+                return `<svg width="20" height="20" viewBox="0 0 20 20" style="overflow:visible"><path d="${shapePath}" fill="${color}" stroke="white" stroke-width="1.5" /></svg>`; 
+            };
 
-            // ★★★ 这里已经改为加载 map.webp ★★★
-            const initMap = () => { mapInstance = L.map('map-container', { crs: L.CRS.Simple, minZoom: -4, maxZoom: 3, zoomControl: false, attributionControl: false }); L.control.zoom({ position: 'topright' }).addTo(mapInstance); loadMapImage('map.webp'); mapInstance.on('click', (e) => { if(!isEditMode.value || !itemToMap.value) return; coordinates.value[itemToMap.value.id] = [e.latlng.lat, e.latlng.lng]; renderMarkers(); itemToMap.value = null; }); };
+            const initMap = () => { 
+                if(mapInstance) return;
+                mapInstance = L.map('map-container', { crs: L.CRS.Simple, minZoom: -4, maxZoom: 3, zoomControl: false, attributionControl: false }); 
+                L.control.zoom({ position: 'topright' }).addTo(mapInstance); 
+                loadMapImage('map.webp'); 
+                mapInstance.on('click', (e) => { 
+                    if(!isEditMode.value || !itemToMap.value) return; 
+                    coordinates.value[itemToMap.value.id] = [e.latlng.lat, e.latlng.lng]; 
+                    renderMarkers(); 
+                    itemToMap.value = null; 
+                }); 
+            };
             
             const loadMapImage = (url) => { const img = new Image(); img.src = url; img.onload = () => { mapError.value = false; const b = [[0,0], [img.height, img.width]]; if(imageOverlay) mapInstance.removeLayer(imageOverlay); imageOverlay = L.imageOverlay(url, b).addTo(mapInstance); mapInstance.fitBounds(b); renderMarkers(); }; img.onerror = () => mapError.value = true; };
             const loadLocalImage = (e) => { const f=e.target.files[0]; if(f){ const r=new FileReader(); r.onload=ev=>loadMapImage(ev.target.result); r.readAsDataURL(f); } };
 
+            // === 修复后的 RenderMarkers ===
             const renderMarkers = () => {
                 if (!mapInstance) return;
                 if (markersLayer) mapInstance.removeLayer(markersLayer);
@@ -285,14 +455,18 @@
                         const eraKey = getEraCategory(item.dating);
                         const subKey = identifySubCategory(item);
                         const mainKey = getMainCategoryBySub(subKey);
+
                         if (!visibleLayers.eras.includes(eraKey)) return;
                         if (!visibleLayers.cats.includes(mainKey)) return;
+
                         const shape = ERA_SHAPES[eraKey] || ERA_SHAPES.Modern;
                         let color = customColors[mainKey] || '#999';
+                        
                         const hasParentheses = item.id.includes('(') || item.id.includes(')');
                         if (showParenthesesLayer.value && hasParentheses) { color = '#000000'; }
                         
-                        let markerHtml = `<div class="relative">${getSvgIcon(shape, color)}`;
+                        // Fix: Wrap SVG in div with dimensions to prevent bleeding
+                        let markerHtml = `<div class="relative" style="width:20px;height:20px;">${getSvgIcon(shape, color)}`;
                         if (showPhotoIcons.value && item.image_paths && item.image_paths.length > 0) {
                             markerHtml += `<div class="photo-badge">📷</div>`;
                         }
@@ -300,10 +474,18 @@
 
                         const icon = L.divIcon({ html: markerHtml, className: 'custom-marker', iconSize: [20, 20], iconAnchor: [10, 10] });
                         const marker = L.marker(coords, { icon: icon, draggable: isEditMode.value });
+                        
                         marker.on('dragend', (e) => coordinates.value[item.id] = [e.target.getLatLng().lat, e.target.getLatLng().lng]);
                         marker.on('click', () => openModal(item));
                         marker.on('contextmenu', (e) => { if(isEditMode.value) { L.DomEvent.stopPropagation(e); deleteMarker(item.id); } });
-                        if (showMapLabels.value) { marker.bindTooltip(`<span style="font-size: ${mapLabelFontSize.value}px">#${item.id} ${item.name}</span>`, { permanent: true, direction: 'right', className: 'map-label-tooltip', offset: [10, 0] }); } else { marker.bindTooltip(`<b>#${item.id}</b> ${item.name}`, { direction: 'top', offset: [0, -10] }); }
+                        
+                        // Fix: Permanent false based on showMapLabels
+                        if (showMapLabels.value) { 
+                             marker.bindTooltip(`<b>#${item.id}</b> ${item.name}`, { permanent: true, direction: 'top', className: 'map-label-tooltip', offset: [0, -10] }); 
+                        } else { 
+                             marker.bindTooltip(`<b>#${item.id}</b> ${item.name}`, { permanent: false, direction: 'top', offset: [0, -10] }); 
+                        }
+                        
                         markersLayer.addLayer(marker);
                     }
                 });
@@ -311,12 +493,12 @@
 
             const deleteMarker = (id) => { if (!confirm(t.value.deleteConfirm)) return; delete coordinates.value[id]; if (selectedItem.value && selectedItem.value.id === id) { closeModal(); } renderMarkers(); };
             
-            const exportFullMap = async () => { if (!imageOverlay || !imageOverlay._image) { alert("Map not loaded."); return; } const originalImg = imageOverlay._image; const width = originalImg.naturalWidth; const height = originalImg.naturalHeight; if (width === 0 || height === 0) return; const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d'); ctx.drawImage(originalImg, 0, 0); const baseScale = Math.max(1.0, width / 2500); const finalIconScale = baseScale * (exportIconScale.value / 100); const finalTextScale = baseScale * (exportTextScale.value / 100); ctx.textAlign = "center"; ctx.textBaseline = "top"; filteredData.value.forEach(item => { const coords = coordinates.value[item.id]; if (!coords) return; const eraKey = getEraCategory(item.dating); const subKey = identifySubCategory(item); const mainKey = getMainCategoryBySub(subKey); if (!visibleLayers.eras.includes(eraKey)) return; if (!visibleLayers.cats.includes(mainKey)) return; const x = coords[1]; const y = height - coords[0]; const shapePathStr = ERA_SHAPES[eraKey] || ERA_SHAPES.Modern; let color = customColors[mainKey] || '#999'; const hasParentheses = item.id.includes('(') || item.id.includes(')'); if (showParenthesesLayer.value && hasParentheses) { color = '#000000'; } ctx.save(); ctx.translate(x, y); ctx.scale(finalIconScale, finalIconScale); ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 4; ctx.shadowOffsetY = 2; const p = new Path2D(shapePathStr); ctx.translate(-10, -10); ctx.fillStyle = color; ctx.fill(p); ctx.lineWidth = 1; ctx.strokeStyle = "white"; ctx.shadowColor = "transparent"; ctx.stroke(p); ctx.restore(); if (exportTextScale.value > 0) { const fontSize = Math.max(10, 14 * finalTextScale); ctx.font = `bold ${fontSize}px sans-serif`; ctx.fillStyle = "#000"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,0.8)"; const labelText = item.map_sheet ? `#${item.id} (M:${item.map_sheet})` : `#${item.id}`; const labelOffsetY = (14 * finalIconScale); ctx.strokeText(labelText, x, y + labelOffsetY); ctx.fillText(labelText, x, y + labelOffsetY); } }); try { const link = document.createElement('a'); link.download = `Cairo_FullMap_${new Date().toISOString().slice(0,10)}_I${exportIconScale.value}_T${exportTextScale.value}.jpg`; link.href = canvas.toDataURL('image/jpeg', 0.85); link.click(); } catch (e) { console.error(e); alert("Export failed."); } };
+            const exportFullMap = async () => { if (!imageOverlay || !imageOverlay._image) { alert("Map not loaded."); return; } const originalImg = imageOverlay._image; const width = originalImg.naturalWidth; const height = originalImg.naturalHeight; if (width === 0 || height === 0) return; const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d'); ctx.drawImage(originalImg, 0, 0); const baseScale = Math.max(1.0, width / 2500); const finalIconScale = baseScale * (exportIconScale.value / 100); const finalTextScale = baseScale * (exportTextScale.value / 100); ctx.textAlign = "center"; ctx.textBaseline = "top"; filteredData.value.forEach(item => { const coords = coordinates.value[item.id]; if (!coords) return; const eraKey = getEraCategory(item.dating); const subKey = identifySubCategory(item); const mainKey = getMainCategoryBySub(subKey); if (!visibleLayers.eras.includes(eraKey)) return; if (!visibleLayers.cats.includes(mainKey)) return; const x = coords[1]; const y = height - coords[0]; const shapePathStr = ERA_SHAPES[eraKey] || ERA_SHAPES.Modern; let color = customColors[mainKey] || '#999'; const hasParentheses = item.id.includes('(') || item.id.includes(')'); if (showParenthesesLayer.value && hasParentheses) { color = '#000000'; } ctx.save(); ctx.translate(x, y); ctx.scale(finalIconScale, finalIconScale); ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 4; ctx.shadowOffsetY = 2; const p = new Path2D(shapePathStr); ctx.translate(-10, -10); ctx.fillStyle = color; ctx.fill(p); ctx.lineWidth = 1; ctx.strokeStyle = "white"; ctx.shadowColor = "transparent"; ctx.stroke(p); ctx.restore(); if (exportTextScale.value > 0) { const fontSize = Math.max(10, 14 * finalTextScale); ctx.font = `bold ${fontSize}px sans-serif`; ctx.fillStyle = "#000"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,0.8)"; const labelText = item.map_sheet ? `#${item.id} (M:${item.map_sheet})` : `#${item.id}`; const labelOffsetY = (14 * finalIconScale); ctx.strokeText(labelText, x, y + labelOffsetY); ctx.fillText(labelText, x, y + labelOffsetY); } }); try { const link = document.createElement('a'); link.download = `Cairo_FullMap_${new Date().toISOString().slice(0,10)}.jpg`; link.href = canvas.toDataURL('image/jpeg', 0.85); link.click(); } catch (e) { console.error(e); alert("Export failed."); } };
 
             const toggleAll = (type) => { const all = type === 'eras' ? Object.keys(ERA_SHAPES) : Object.keys(DEFAULT_COLORS); if (visibleLayers[type].length === all.length) visibleLayers[type] = []; else visibleLayers[type] = all; };
             const resetColors = () => { Object.assign(customColors, DEFAULT_COLORS); };
             
-            watch([filteredData, isEditMode, visibleLayers, customColors, showParenthesesLayer, showMapLabels, mapLabelFontSize, showPhotoIcons], () => { if(currentView.value === 'map') renderMarkers(); }, { deep: true });
+            watch([filteredData, isEditMode, visibleLayers, customColors, showParenthesesLayer, showMapLabels, showPhotoIcons], () => { if(currentView.value === 'map') renderMarkers(); }, { deep: true });
             
             const exportCoordinates = () => { navigator.clipboard.writeText(JSON.stringify(coordinates.value, null, 4)).then(() => alert("Coordinates copied to clipboard!")); };
             const resetSearch = () => { searchId.value=""; searchMap.value=""; searchKeyword.value=""; selectedCategory.value=""; selectedSubCategory.value=""; selectedEra.value=""; };
@@ -326,98 +508,47 @@
             const googleTranslateUrl = computed(() => selectedItem.value ? `https://translate.google.com/?sl=en&tl=zh-CN&text=${encodeURIComponent(selectedItem.value.description)}&op=translate` : "#");
             const getSvgPath = (d) => d; 
 
-            // ============ 图片优化相关逻辑 ============
-            
-            // 预加载功能
-            const preloadImages = (urls) => {
-                if (!urls || urls.length === 0) return;
-                urls.forEach(url => {
-                    const img = new Image();
-                    img.src = url;
-                });
-            };
-
-            // 当图片标签触发 @load 事件时
-            const onImageLoad = () => {
-                isImageLoading.value = false;
-            };
-
-            // 监听选中项变化，重置索引并预加载
-            watch(selectedItem, (newItem) => { 
-                currentImageIndex.value = 0; 
-                isImageLoading.value = true;
-                if (newItem && newItem.image_paths && newItem.image_paths.length > 0) {
-                    preloadImages(newItem.image_paths);
-                }
-            });
-
-            const nextImage = () => { 
-                if (selectedItem.value && selectedItem.value.image_paths) { 
-                    isImageLoading.value = true;
-                    currentImageIndex.value = (currentImageIndex.value + 1) % selectedItem.value.image_paths.length; 
-                } 
-            };
-            const prevImage = () => { 
-                if (selectedItem.value && selectedItem.value.image_paths) { 
-                    isImageLoading.value = true;
-                    currentImageIndex.value = (currentImageIndex.value - 1 + selectedItem.value.image_paths.length) % selectedItem.value.image_paths.length; 
-                } 
-            };
-            
-            // 灯箱
+            // Image Features
+            const onImageLoad = () => { isImageLoading.value = false; };
+            watch(selectedItem, (newItem) => { currentImageIndex.value = 0; isImageLoading.value = true; });
+            const nextImage = () => { if (selectedItem.value && selectedItem.value.image_paths) { isImageLoading.value = true; currentImageIndex.value = (currentImageIndex.value + 1) % selectedItem.value.image_paths.length; } };
+            const prevImage = () => { if (selectedItem.value && selectedItem.value.image_paths) { isImageLoading.value = true; currentImageIndex.value = (currentImageIndex.value - 1 + selectedItem.value.image_paths.length) % selectedItem.value.image_paths.length; } };
             const openLightbox = () => { isLightboxOpen.value = true; };
             const closeLightbox = () => { isLightboxOpen.value = false; };
             
-            // 下载功能
             const downloadImages = async () => {
                 if (!selectedItem.value || !selectedItem.value.image_paths || selectedItem.value.image_paths.length === 0) return;
-                
                 downloading.value = true;
                 const zip = new JSZip();
                 const safeName = selectedItem.value.name.replace(/[^a-z0-9]/gi, '_').replace(/_+/g, '_');
                 const folderName = `${selectedItem.value.id}_${safeName}`;
-
                 try {
                     const promises = selectedItem.value.image_paths.map(async (url) => {
                         const response = await fetch(url);
                         if (!response.ok) throw new Error(`Failed to fetch ${url}`);
                         const blob = await response.blob();
                         const filename = url.substring(url.lastIndexOf('/') + 1);
-                        const decodedFilename = decodeURIComponent(filename);
-                        zip.file(decodedFilename, blob);
+                        zip.file(decodeURIComponent(filename), blob);
                     });
-
                     await Promise.all(promises);
                     const content = await zip.generateAsync({ type: "blob" });
                     saveAs(content, `${folderName}.zip`);
-                } catch (error) {
-                    console.error("Download failed:", error);
-                    alert("Download failed. Please check console for details.");
-                } finally {
-                    downloading.value = false;
-                }
+                } catch (error) { console.error("Download failed:", error); alert("Download failed."); } finally { downloading.value = false; }
             };
 
             return {
                 currentView, currentLang, isFullScreen, isEditMode, isSearchCollapsed, hideMapControls, mapError,
                 searchId, searchMap, searchKeyword, selectedCategory, selectedSubCategory, selectedEra, selectedItem,
-                filteredData, unmappedData, itemToMap, coordinates, savedCoordinates: coordinates,
-                t, hasFilters, switchView, toggleFullScreen, loadLocalImage, exportCoordinates,
+                filteredData, itemToMap, coordinates, savedCoordinates: coordinates,
+                t, switchView, toggleFullScreen, loadLocalImage, exportCoordinates,
                 resetSearch, openModal, closeModal, toggleLang, googleTranslateUrl,
-                getCategoryInfo, getEraLabel, identifySubCategory, getSubCategoryLabel,
-                showLayers, visibleLayers, eraShapes: ERA_SHAPES, catColors: DEFAULT_COLORS, getSvgPath, toggleAll,
-                selectItemToMap, eraList, categoryList, subCategoryList, getShortEra,
-                deleteMarker, exportFullMap, customColors, resetColors,
-                exportIconScale, exportTextScale, showParenthesesLayer,
-                showMapLabels, mapLabelFontSize,
-                
-                // 图片相关
-                currentImageIndex, nextImage, prevImage, showPhotoIcons,
-                isImageLoading, onImageLoad, // 导出新变量
-                // 灯箱
-                isLightboxOpen, openLightbox, closeLightbox,
-                // 下载
-                downloadImages, downloading
+                getCategoryInfo, identifySubCategory, getSubCategoryLabel,
+                showLayers, visibleLayers, eraShapes: ERA_SHAPES, customColors, resetColors,
+                exportIconScale, exportTextScale, showParenthesesLayer, showMapLabels, showPhotoIcons,
+                toggleAll, selectItemToMap, eraList, categoryList, subCategoryList, getShortEra,
+                deleteMarker, exportFullMap, getSvgPath,
+                currentImageIndex, nextImage, prevImage, isImageLoading, onImageLoad,
+                isLightboxOpen, openLightbox, closeLightbox, downloadImages, downloading
             };
         }
     }).mount('#app');
