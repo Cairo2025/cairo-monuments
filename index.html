@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cairo Urban History Map</title>
+    <title>Cairo Urban History Map - Fixed</title>
     
     <!-- CSS Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -29,22 +29,46 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
+        /* === 核心修复区域 START === */
+        
         /* Marker Styles */
-        .custom-marker { background: transparent; border: none; }
+        .custom-marker { 
+            background: transparent; 
+            border: none; 
+            /* 强制隐藏任何可能泄漏的文本 (如 M10,0...) */
+            font-size: 0px !important; 
+            color: transparent !important;
+            line-height: 0 !important;
+        }
+
+        /* 确保 SVG 图标本身是可见的 */
+        .custom-marker svg {
+            overflow: visible;
+            display: block;
+        }
+
+        /* 恢复照片角标的字体大小，否则它也会消失 */
         .photo-badge {
             position: absolute; bottom: -5px; right: -5px;
-            font-size: 10px; background: white; border-radius: 50%;
-            width: 14px; height: 14px; line-height: 14px; text-align: center;
+            font-size: 10px !important; 
+            color: #333 !important;
+            line-height: 14px !important;
+            background: white; border-radius: 50%;
+            width: 14px; height: 14px; text-align: center;
             box-shadow: 0 1px 2px rgba(0,0,0,0.3); z-index: 10;
         }
         
+        /* === 核心修复区域 END === */
+        
         /* Tooltip Styles */
         .map-label-tooltip {
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid #ccc;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #3b82f6;
             border-radius: 4px;
-            padding: 2px 5px;
+            padding: 2px 6px;
             font-size: 12px;
+            font-weight: bold;
+            color: #333;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
             white-space: nowrap;
         }
@@ -352,8 +376,16 @@
 <script>
     const { createApp, ref, computed, watch, nextTick, reactive } = Vue;
 
-    // Data Constants
-    const ERA_SHAPES = { Early: "M10,0 A10,10 0 1,1 10,20 A10,10 0 1,1 10,0", Fatimid: "M2,2 H18 V18 H2 Z", Ayyubid: "M10,2 L18,18 H2 Z", Mamluk: "M10,0 L20,10 L10,20 L0,10 Z", Ottoman: "M10,0 L12.5,7.5 H20 L14,12.5 L16,20 L10,15 L4,20 L6,12.5 L0,7.5 H7.5 Z", Modern: "M5,0 L15,0 L20,10 L15,20 L5,20 L0,10 Z" };
+    // Data Constants - COMPACTED STRINGS TO PREVENT NEWLINE ERRORS
+    const ERA_SHAPES = {
+        Early: "M10,0 A10,10 0 1,1 10,20 A10,10 0 1,1 10,0",
+        Fatimid: "M2,2 H18 V18 H2 Z",
+        Ayyubid: "M10,2 L18,18 H2 Z",
+        Mamluk: "M10,0 L20,10 L10,20 L0,10 Z",
+        Ottoman: "M10,0 L12.5,7.5 H20 L14,12.5 L16,20 L10,15 L4,20 L6,12.5 L0,7.5 H7.5 Z",
+        Modern: "M5,0 L15,0 L20,10 L15,20 L5,20 L0,10 Z"
+    };
+
     const DEFAULT_COLORS = { Faith: "#8b5cf6", Ruling: "#ef4444", Trade: "#10b981", Leisure: "#ec4899", Living: "#3b82f6", Production: "#f97316" };
     const SUB_CATEGORY_OPTIONS = { Ruling: [{ value: 'Gate', label: '城门 (Gate/Bab)' }, { value: 'Wall', label: '城墙 (Wall)' }, { value: 'Tower', label: '塔楼/防御 (Tower)' }, { value: 'Palace', label: '宫殿 (Palace/Qasr/Saraya)' }], Faith: [{ value: 'Mosque', label: '清真寺 (Mosque)' }, { value: 'Madrasa', label: '经学院 (Madrasa)' }, { value: 'Tomb', label: '陵墓/拱北 (Tomb/Mausoleum)' }, { value: 'Sufi', label: '道堂/哈卡 (Zawiya/Khanqah)' }, { value: 'Church', label: '教堂 (Church)' }, { value: 'Synagogue', label: '犹太会堂 (Synagogue)' }, { value: 'Kuttab', label: '古兰经学校 (Kuttab)' }], Trade: [{ value: 'Wikala', label: '商栈 (Wikala)' }, { value: 'Khan', label: '汗/商旅馆 (Khan)' }, { value: 'Market', label: '市场/苏克 (Souq/Badistan)' }], Leisure: [{ value: 'Sabil', label: '公益饮水处 (Sabil)' }, { value: 'Hawd', label: '饮水槽 (Hawd)' }, { value: 'Hammam', label: '公共澡堂 (Hammam)' }, { value: 'Library', label: '图书馆 (Library)' }, { value: 'Garden', label: '花园 (Garden)' }], Living: [{ value: 'House', label: '古宅 (House/Bayt/Manzil)' }, { value: 'Rab', label: '公寓楼 (Rab\')' }, { value: 'Hall', label: '厅堂 (Qa\'a/Maq\'ad)' }], Production: [] };
     const ID_OVERRIDES = { "66": "Tomb", "180": "Mosque", "15": "Mosque", "28": "Mosque", "60": "Mosque", "187": "Mosque", "190": "Mosque", "480": "Mosque", "40": "Mosque", "43": "Mosque", "30": "Mosque", "42": "Mosque", "382": "Mosque", "459": "Mosque", "44": "Mosque", "35": "Madrasa", "38": "Madrasa", "428": "Madrasa", "96": "Madrasa", "105": "Tomb", "U32": "Tomb", "371": "Sufi", "74": "Sabil", "401": "Sabil", "16": "Sabil", "17": "Sabil", "70": "Sabil", "71": "Sabil", "179": "Sabil", "76": "Sabil", "230": "Sabil", "232": "Sabil", "236": "Sabil", "311": "Sabil", "358": "Sabil", "427": "Sabil", "553": "Sabil", "591": "Sabil", "562": "Hammam", "U30": "Hammam", "596": "Hammam", "U46": "Library", "406": "Market", "408": "Market", "235": "House", "U7": "House", "U20": "House", "65": "House", "72": "House", "471": "House", "487": "House", "489": "House", "500": "House", "501": "House", "50": "Palace" };
@@ -369,7 +401,7 @@
             const hideMapControls = ref(false);
             const mapError = ref(false);
             const showLayers = ref(true);
-            const showMapLabels = ref(false); // Default false to avoid clutter
+            const showMapLabels = ref(false); 
             const showParenthesesLayer = ref(false); 
             const showPhotoIcons = ref(false);
 
@@ -422,9 +454,9 @@
             const switchView = (v) => { currentView.value = v; if(v === 'map') nextTick(() => { if(!mapInstance) initMap(); else mapInstance.invalidateSize(); }); };
             const toggleFullScreen = () => { isFullScreen.value = !isFullScreen.value; nextTick(() => mapInstance && mapInstance.invalidateSize()); };
             
-            // Fixed getSvgIcon to prevent HTML injection issues
+            // === 核心修复：纯字符串拼接，避免HTML解析错误 ===
             const getSvgIcon = (shapePath, color) => { 
-                return `<svg width="20" height="20" viewBox="0 0 20 20" style="overflow:visible"><path d="${shapePath}" fill="${color}" stroke="white" stroke-width="1.5" /></svg>`; 
+                return '<svg width="20" height="20" viewBox="0 0 20 20" style="overflow:visible;display:block;"><path d="' + shapePath + '" fill="' + color + '" stroke="white" stroke-width="1.5" /></svg>'; 
             };
 
             const initMap = () => { 
@@ -465,12 +497,14 @@
                         const hasParentheses = item.id.includes('(') || item.id.includes(')');
                         if (showParenthesesLayer.value && hasParentheses) { color = '#000000'; }
                         
-                        // Fix: Wrap SVG in div with dimensions to prevent bleeding
-                        let markerHtml = `<div class="relative" style="width:20px;height:20px;">${getSvgIcon(shape, color)}`;
+                        // 1. 使用简化版的 HTML 结构
+                        // 2. 结合 CSS 中的 .custom-marker { font-size: 0 } 彻底消除乱码
+                        let markerHtml = '<div class="relative" style="width:20px;height:20px;">' + getSvgIcon(shape, color);
+                        
                         if (showPhotoIcons.value && item.image_paths && item.image_paths.length > 0) {
-                            markerHtml += `<div class="photo-badge">📷</div>`;
+                            markerHtml += '<div class="photo-badge">📷</div>';
                         }
-                        markerHtml += `</div>`;
+                        markerHtml += '</div>';
 
                         const icon = L.divIcon({ html: markerHtml, className: 'custom-marker', iconSize: [20, 20], iconAnchor: [10, 10] });
                         const marker = L.marker(coords, { icon: icon, draggable: isEditMode.value });
@@ -479,13 +513,16 @@
                         marker.on('click', () => openModal(item));
                         marker.on('contextmenu', (e) => { if(isEditMode.value) { L.DomEvent.stopPropagation(e); deleteMarker(item.id); } });
                         
-                        // Fix: Permanent false based on showMapLabels
-                        if (showMapLabels.value) { 
-                             marker.bindTooltip(`<b>#${item.id}</b> ${item.name}`, { permanent: true, direction: 'top', className: 'map-label-tooltip', offset: [0, -10] }); 
-                        } else { 
-                             marker.bindTooltip(`<b>#${item.id}</b> ${item.name}`, { permanent: false, direction: 'top', offset: [0, -10] }); 
-                        }
+                        // 确保 permanent 属性受到开关控制
+                        const tooltipOptions = { 
+                            permanent: showMapLabels.value, 
+                            direction: 'top', 
+                            className: 'map-label-tooltip',
+                            offset: [0, -10],
+                            opacity: 0.95 
+                        };
                         
+                        marker.bindTooltip(`<b>#${item.id}</b> ${item.name}`, tooltipOptions); 
                         markersLayer.addLayer(marker);
                     }
                 });
