@@ -152,7 +152,7 @@
 
         <main class="flex-grow relative overflow-hidden flex flex-col">
             <!-- List View -->
-            <div v-if="currentView === 'list'" class="flex-grow overflow-y-auto bg-gray-100">
+            <div v-if="currentView === 'list'" class="flex-grow overflow-y-auto bg-gray-100 relative z-10">
                 <div class="container mx-auto max-w-7xl px-4 py-8">
                     <div v-if="filteredData.length === 0" class="text-center py-20">
                         <div class="text-6xl mb-4 opacity-50">🏛️</div>
@@ -184,7 +184,8 @@
             </div>
 
             <!-- Map View -->
-            <div v-show="currentView === 'map'" class="absolute inset-0 w-full h-full">
+            <div class="absolute inset-0 w-full h-full transition-opacity duration-300" 
+     :class="{'invisible opacity-0 -z-10': currentView !== 'map', 'visible opacity-100 z-0': currentView === 'map'}">
                 <!-- Left Controls -->
                 <div class="absolute top-4 left-4 z-[1000] flex flex-col gap-2 max-w-sm w-full transition-all duration-300" :class="{'opacity-0 pointer-events-none': hideMapControls}">
                     <div class="bg-white/95 backdrop-blur rounded-lg shadow-xl border border-gray-200 overflow-hidden">
@@ -468,7 +469,7 @@
     </div>
 
 <script>
-    const { createApp, ref, computed, watch, nextTick, reactive } = Vue;
+    const { createApp, ref, computed, watch, nextTick, reactive, onMounted } = Vue;
 
     // 常量定义
     const ERA_SHAPES = { Early: "M10,0 A10,10 0 1,1 10,20 A10,10 0 1,1 10,0", Fatimid: "M2,2 H18 V18 H2 Z", Ayyubid: "M10,2 L18,18 H2 Z", Mamluk: "M10,0 L20,10 L10,20 L0,10 Z", Ottoman: "M10,0 L12.5,7.5 H20 L14,12.5 L16,20 L10,15 L4,20 L6,12.5 L0,7.5 H7.5 Z", Modern: "M5,0 L15,0 L20,10 L15,20 L5,20 L0,10 Z" };
@@ -566,7 +567,24 @@
             const hasFilters = computed(() => searchId.value||searchMap.value||searchKeyword.value||selectedCategory.value||selectedEra.value||selectedSubCategory.value);
 
             const selectItemToMap = (item) => { if (itemToMap.value && itemToMap.value.id === item.id) itemToMap.value = null; else itemToMap.value = item; };
-            const switchView = (v) => { currentView.value = v; if(v === 'map') nextTick(() => { if(!mapInstance) initMap(); else mapInstance.invalidateSize(); }); };
+            // --- 找到原本的 switchView 函数，替换为下面这个简化版 ---
+            const switchView = (v) => { 
+                currentView.value = v; 
+                // 切换时通知地图重新核对尺寸（防止因为窗口缩放导致的显示错误），但不需要重新加载了
+                if(v === 'map' && mapInstance) {
+                    nextTick(() => { 
+                        mapInstance.invalidateSize(); 
+                    });
+                }
+            };
+
+            // --- 在 switchView 下面，添加这个新的 onMounted ---
+            onMounted(() => {
+                // 页面加载后稍微延迟一点点初始化地图，避免阻塞主线程渲染列表
+                setTimeout(() => {
+                    initMap();
+                }, 100);
+            });
             const toggleFullScreen = () => { isFullScreen.value = !isFullScreen.value; nextTick(() => mapInstance && mapInstance.invalidateSize()); };
             const getSvgIcon = (shapePath, color) => { return `<svg width="20" height="20" viewBox="0 0 20 20" style="filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.4)); overflow: visible;"><path d="${shapePath}" fill="${color}" stroke="white" stroke-width="1.5" /></svg>`; };
 
