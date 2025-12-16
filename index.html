@@ -1,252 +1,3 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v10.0 WebP Map)</title>
-    
-    <!-- 1. 引入基础库 -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- 引入打包下载所需的库 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    
-    <!-- 2. 引入数据文件 -->
-    <script src="data_with_paths.js"></script>
-    
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; overflow: hidden; }
-        .main-layout { height: 100vh; display: flex; flex-direction: column; }
-        .input-base {
-            width: 100%; background-color: #f9fafb; border: 1px solid #d1d5db; color: #111827;
-            font-size: 0.875rem; border-radius: 0.5rem; padding: 0.5rem; transition: all 0.2s; outline: none;
-        }
-        .input-base:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
-        .input-base:disabled { background-color: #e5e7eb; cursor: not-allowed; color: #9ca3af; }
-        #map-container { width: 100%; height: 100%; background: #e5e7eb; z-index: 1; }
-        
-        .custom-marker { filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.3)); transition: transform 0.2s; }
-        .custom-marker:hover { transform: scale(1.3); z-index: 1000 !important; cursor: pointer; }
-        
-        .photo-badge {
-            position: absolute; top: -6px; right: -6px; background-color: #ffffff; border: 1px solid #3b82f6;
-            border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center;
-            justify-content: center; font-size: 9px; box-shadow: 0 1px 2px rgba(0,0,0,0.3); z-index: 10;
-        }
-
-        .map-label-tooltip {
-            background: transparent; border: none; box-shadow: none; font-weight: bold;
-            text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
-            color: #000; padding: 0 4px;
-        }
-        .map-label-tooltip::before { display: none; }
-
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .card { transition: all 0.2s ease; }
-        .card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
-        
-        .color-picker {
-            -webkit-appearance: none; border: none; width: 18px; height: 18px; padding: 0; 
-            background: none; cursor: pointer; border-radius: 50%; overflow: hidden; vertical-align: middle;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1); margin-right: 6px;
-        }
-        .color-picker::-webkit-color-swatch-wrapper { padding: 0; }
-        .color-picker::-webkit-color-swatch { border: 1px solid rgba(0,0,0,0.1); border-radius: 50%; }
-        
-        input[type=range] { height: 4px; border-radius: 2px; background: #e5e7eb; outline: none; -webkit-appearance: none; }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; appearance: none; width: 12px; height: 12px; border-radius: 50%; 
-            background: #3b82f6; cursor: pointer; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-        }
-
-        [v-cloak] { display: none !important; }
-        
-        /* 旋转动画 */
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-spin { animation: spin 1s linear infinite; }
-    </style>
-</head>
-<body>
-    <div id="app" class="main-layout" v-cloak>
-        
-        <!-- Header -->
-        <header v-if="!isFullScreen" class="bg-slate-900 text-white shadow-xl flex-shrink-0 z-[2000]">
-            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-                <div class="flex items-center space-x-3 cursor-pointer" @click="resetSearch">
-                    <span class="text-3xl">🕌</span>
-                    <div>
-                        <h1 class="text-lg md:text-xl font-bold tracking-wide">Cairo Monuments GIS</h1>
-                        <p class="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider">Map & Archive Database</p>
-                    </div>
-                </div>
-                
-                <div class="flex items-center space-x-3">
-                    <div class="bg-slate-800 rounded-lg p-1 flex">
-                        <button @click="currentView = 'list'" :class="{'bg-blue-600 text-white': currentView === 'list', 'text-gray-400 hover:text-white': currentView !== 'list'}" class="px-3 py-1 rounded text-sm transition">
-                            📄 {{ t.viewList }}
-                        </button>
-                        <button @click="switchView('map')" :class="{'bg-blue-600 text-white': currentView === 'map', 'text-gray-400 hover:text-white': currentView !== 'map'}" class="px-3 py-1 rounded text-sm transition">
-                            🗺️ {{ t.viewMap }}
-                        </button>
-                    </div>
-                    <button @click="toggleLang" class="flex items-center text-sm bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3 py-1.5 rounded transition">
-                        <span class="mr-2">🌐</span> {{ currentLang === 'zh' ? 'EN' : '中文' }}
-                    </button>
-                </div>
-            </div>
-        </header>
-
-        <!-- Search Filters -->
-        <div v-if="currentView === 'list'" class="bg-white shadow-sm border-b border-gray-200 p-4 z-[1001]">
-            <div class="container mx-auto max-w-7xl">
-                <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
-                    <div class="md:col-span-1">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">{{ t.labelId }}</label>
-                        <input v-model="searchId" type="text" placeholder="ID" class="input-base">
-                    </div>
-                    <div class="md:col-span-1">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">{{ t.labelMap }}</label>
-                        <input v-model="searchMap" type="text" placeholder="Map" class="input-base">
-                    </div>
-                    <div class="md:col-span-2">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">{{ t.labelEra }}</label>
-                        <select v-model="selectedEra" class="input-base">
-                            <option value="">{{ t.eraAll }}</option>
-                            <option v-for="option in eraList" :key="option.value" :value="option.value">{{ option.label }}</option>
-                        </select>
-                    </div>
-                    <div class="md:col-span-2">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">{{ t.labelCategory }}</label>
-                        <select v-model="selectedCategory" class="input-base">
-                            <option value="">{{ t.catAll }}</option>
-                            <option v-for="option in categoryList" :key="option.value" :value="option.value">{{ option.label }}</option>
-                        </select>
-                    </div>
-                    <div class="md:col-span-2">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">{{ t.labelSubCategory }}</label>
-                        <select v-model="selectedSubCategory" class="input-base" :disabled="!selectedCategory">
-                            <option value="">{{ selectedCategory ? t.subCatAll : t.subCatHint }}</option>
-                            <option v-for="sub in subCategoryList" :key="sub.value" :value="sub.value">{{ sub.label }}</option>
-                        </select>
-                    </div>
-                    <div class="md:col-span-4">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">{{ t.labelKeyword }}</label>
-                        <input v-model="searchKeyword" type="text" :placeholder="t.placeholderKeyword" class="input-base">
-                    </div>
-                </div>
-                <div class="mt-4 flex justify-between items-center text-sm text-gray-500 border-t pt-2">
-                    <div>{{ t.foundPrefix }} <span class="font-bold text-blue-600">{{ filteredData.length }}</span> {{ t.foundSuffix }}</div>
-                    <button v-if="hasFilters" @click="resetSearch" class="text-red-500 hover:text-red-700 font-medium text-xs uppercase tracking-wide">{{ t.reset }} ✕</button>
-                </div>
-            </div>
-        </div>
-
-        <main class="flex-grow relative overflow-hidden flex flex-col">
-            <!-- List View -->
-            <div v-if="currentView === 'list'" class="flex-grow overflow-y-auto bg-gray-100">
-                <div class="container mx-auto max-w-7xl px-4 py-8">
-                    <div v-if="filteredData.length === 0" class="text-center py-20">
-                        <div class="text-6xl mb-4 opacity-50">🏛️</div>
-                        <p class="text-gray-500 text-lg">{{ t.noResult }}</p>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        <div v-for="item in filteredData" :key="item.id" class="card bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden group">
-                            <div class="bg-gray-50 p-4 border-b border-gray-100 group-hover:bg-blue-50 transition-colors">
-                                <div class="flex justify-between items-start">
-                                    <div class="flex gap-1">
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">#{{ item.id }}</span>
-                                        <span v-if="item.map_sheet" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">🗺️ {{ item.map_sheet }}</span>
-                                    </div>
-                                    <span v-if="savedCoordinates[item.id]" class="text-[10px] text-green-600 border border-green-200 bg-green-50 px-1 rounded">📍Mapped</span>
-                                </div>
-                                <h3 class="text-lg font-bold text-gray-900 mt-2 leading-snug group-hover:text-blue-700">{{ item.name }}</h3>
-                                <div class="mt-2 flex flex-wrap gap-1">
-                                    <span v-if="getCategoryInfo(item)" :class="`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border leading-tight`" :style="getCategoryInfo(item).style">{{ getCategoryInfo(item).label }}</span>
-                                    <span v-if="identifySubCategory(item)" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border bg-white text-gray-600 border-gray-300">{{ getSubCategoryLabel(item) }}</span>
-                                </div>
-                            </div>
-                            <div class="p-4 flex-grow"><p class="text-sm text-gray-600 line-clamp-4">{{ item.description }}</p></div>
-                            <div class="p-4 border-t border-gray-100 bg-white">
-                                <button @click="openModal(item)" class="w-full py-2 px-4 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition">{{ t.viewDetails }}</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Map View -->
-            <div v-show="currentView === 'map'" class="absolute inset-0 w-full h-full">
-                <!-- Left Controls -->
-                <div class="absolute top-4 left-4 z-[1000] flex flex-col gap-2 max-w-sm w-full transition-all duration-300" :class="{'opacity-0 pointer-events-none': hideMapControls}">
-                    <div class="bg-white/95 backdrop-blur rounded-lg shadow-xl border border-gray-200 overflow-hidden">
-                        <div class="p-3 bg-gray-50 border-b flex justify-between items-center cursor-pointer" @click="isSearchCollapsed = !isSearchCollapsed">
-                            <span class="font-bold text-gray-700 text-sm">🔍 {{ t.searchFilter }}</span>
-                            <span class="text-xs text-gray-500">{{ isSearchCollapsed ? '▼' : '▲' }}</span>
-                        </div>
-                        <div v-show="!isSearchCollapsed" class="p-4 space-y-3">
-                            <input v-model="searchKeyword" type="text" :placeholder="t.placeholderKeyword" class="input-base">
-                            <div class="flex gap-2">
-                                <input v-model="searchId" type="text" placeholder="ID" class="input-base w-1/3">
-                                <input v-model="searchMap" type="text" placeholder="Map" class="input-base w-1/3">
-                            </div>
-                            <div class="flex justify-between items-center text-xs text-gray-500">
-                                <span>{{ t.foundPrefix }} <b>{{ filteredData.length }}</b></span>
-                                <button @click="resetSearch" class="text-red-500 hover:underline">{{ t.reset }}</button>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- 待落位列表 -->
-                    <div v-if="isEditMode" class="bg-white/95 backdrop-blur rounded-lg shadow-xl border border-yellow-400 overflow-hidden flex flex-col max-h-[50vh]">
-                        <div class="p-3 bg-yellow-50 border-b border-yellow-100 font-bold text-sm text-yellow-800 flex justify-between">
-                            <span>📌 {{ t.unmappedList }} ({{ unmappedData.length }})</span>
-                        </div>
-                        <div class="overflow-y-auto p-2 space-y-2 no-scrollbar flex-grow">
-                            <div v-for="item in unmappedData" :key="item.id" @click="selectItemToMap(item)" :class="{'ring-2 ring-blue-500 bg-blue-50': itemToMap?.id === item.id}" class="p-2 border rounded text-xs cursor-pointer hover:bg-gray-50 transition bg-white">
-                                <b>#{{ item.id }}</b> {{ item.name }}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Right Controls -->
-                <div class="absolute top-4 right-4 z-[1000] flex flex-col gap-2 items-end">
-                    <div class="flex gap-2">
-                        <!-- Label Control -->
-                        <div class="bg-white/90 backdrop-blur rounded-lg shadow border px-3 py-2 flex flex-col justify-center w-40">
-                             <div class="flex items-center justify-between mb-1">
-                                <span class="text-[10px] font-bold text-gray-500 uppercase">🅰️ Labels</span>
-                                <label class="inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" v-model="showMapLabels" class="sr-only peer">
-                                    <div class="relative w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
-                                </label>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-[10px] text-gray-400">Size</span>
-                                <input type="range" v-model.number="mapLabelFontSize" min="8" max="40" step="1" class="flex-grow h-1" :disabled="!showMapLabels">
-                                <span class="text-[10px] font-mono text-blue-600 w-4">{{ mapLabelFontSize }}</span>
-                            </div>
-                        </div>
-
-                        <!-- Photos Toggle -->
-                        <div class="bg-white/90 backdrop-blur rounded-lg shadow border px-3 py-2 flex items-center gap-2">
-                            <label class="inline-flex items-center cursor-pointer">
-                                <input type="checkbox" v-model="showPhotoIcons" class="sr-only peer">
-                                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
-                                <span class="ms-2 text-xs font-bold text-gray-700 select-none">📷 Photos</span>
-                            </label>
-                        </div>
-
-                        <!-- Edit Mode -->
-                        <div class="bg-white/90 backdrop-blur rounded-lg shadow border px-3 py-2 flex items-center gap-3">
-                            <label class="inline-flex items-center cursor-pointer">
-                                <input type="checkbox" v-model="isEditMode" class="sr-only peer">
-                                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-500"></div>
-                                <span class="ms-2 text-xs font-bold text-gray-700 select-none">✏️ {{ t.editMode }}
 </span>
                             </label>
                             <button v-if="isEditMode" @click="exportCoordinates" class="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 shadow">💾 {{ t.exportData }}</button>
@@ -445,7 +196,7 @@
 
     // 常量定义
     const ERA_SHAPES = { Early: "M10,0 A10,10 0 1,1 10,20 A10,10 0 1,1 10,0", Fatimid: "M2,2 H18 V18 H2 Z", Ayyubid: "M10,2 L18,18 H2 Z", Mamluk: "M10,0 L20,10 L10,20 L0,10 Z", Ottoman: "M10,0 L12.5,7.5 H20 L14,12.5 L16,20 L10,15 L4,20 L6,12.5 L0,7.5 H7.5 Z", Modern: "M5,0 L15,0 L20,10 L15,20 L5,20 L0,10 Z" };
-    const DEFAULT_COLORS = { Faith: "#8b5cf6", Ruling: "#ef4444", Trade: "#10b981", Leisure: "#ec4899", Living: "#f7bb3b", Production: "#f97316" };
+    const DEFAULT_COLORS = { Faith: "#8b5cf6", Ruling: "#ef4444", Trade: "#10b981", Leisure: "#ec4899", Living: "#3b82f6", Production: "#f97316" };
     const SUB_CATEGORY_OPTIONS = { Ruling: [{ value: 'Gate', label: '城门 (Gate/Bab)' }, { value: 'Wall', label: '城墙 (Wall)' }, { value: 'Tower', label: '塔楼/防御 (Tower)' }, { value: 'Palace', label: '宫殿 (Palace/Qasr/Saraya)' }], Faith: [{ value: 'Mosque', label: '清真寺 (Mosque)' }, { value: 'Madrasa', label: '经学院 (Madrasa)' }, { value: 'Tomb', label: '陵墓/拱北 (Tomb/Mausoleum)' }, { value: 'Sufi', label: '道堂/哈卡 (Zawiya/Khanqah)' }, { value: 'Church', label: '教堂 (Church)' }, { value: 'Synagogue', label: '犹太会堂 (Synagogue)' }, { value: 'Kuttab', label: '古兰经学校 (Kuttab)' }], Trade: [{ value: 'Wikala', label: '商栈 (Wikala)' }, { value: 'Khan', label: '汗/商旅馆 (Khan)' }, { value: 'Market', label: '市场/苏克 (Souq/Badistan)' }], Leisure: [{ value: 'Sabil', label: '公益饮水处 (Sabil)' }, { value: 'Hawd', label: '饮水槽 (Hawd)' }, { value: 'Hammam', label: '公共澡堂 (Hammam)' }, { value: 'Library', label: '图书馆 (Library)' }, { value: 'Garden', label: '花园 (Garden)' }], Living: [{ value: 'House', label: '古宅 (House/Bayt/Manzil)' }, { value: 'Rab', label: '公寓楼 (Rab\')' }, { value: 'Hall', label: '厅堂 (Qa\'a/Maq\'ad)' }], Production: [] };
     const ID_OVERRIDES = { "66": "Tomb", "180": "Mosque", "15": "Mosque", "28": "Mosque", "60": "Mosque", "187": "Mosque", "190": "Mosque", "480": "Mosque", "40": "Mosque", "43": "Mosque", "30": "Mosque", "42": "Mosque", "382": "Mosque", "459": "Mosque", "44": "Mosque", "35": "Madrasa", "38": "Madrasa", "428": "Madrasa", "96": "Madrasa", "105": "Tomb", "U32": "Tomb", "371": "Sufi", "74": "Sabil", "401": "Sabil", "16": "Sabil", "17": "Sabil", "70": "Sabil", "71": "Sabil", "179": "Sabil", "76": "Sabil", "230": "Sabil", "232": "Sabil", "236": "Sabil", "311": "Sabil", "358": "Sabil", "427": "Sabil", "553": "Sabil", "591": "Sabil", "562": "Hammam", "U30": "Hammam", "596": "Hammam", "U46": "Library", "406": "Market", "408": "Market", "235": "House", "U7": "House", "U20": "House", "65": "House", "72": "House", "471": "House", "487": "House", "489": "House", "500": "House", "501": "House", "50": "Palace" };
     const i18n = { zh: { viewList: "列表", viewMap: "地图", editMode: "编辑模式", exportData: "保存数据", unmappedList: "待落位", layerControl: "图层管理", layerEra: "历史时期 (形状)", layerCategory: "功能分类 (颜色)", layerParentheses: "已拆除建筑 (...)", labelId: "编号", labelMap: "图号", labelEra: "历史时期", labelCategory: "主要类别", labelSubCategory: "二级分类", labelKeyword: "关键词", placeholderKeyword: "搜索名称...", foundPrefix: "共", foundSuffix: "处", reset: "重置", noResult: "无结果", viewDetails: "详情", searchFilter: "搜索与筛选", eraAll: "全部时期", catAll: "全部类型 (All)", subCatAll: "全部二级分类", subCatHint: "请先选择主类别", eraEarly: "早期伊斯兰 (641-969)", eraFatimid: "法蒂玛 (969-1171)", eraAyyubid: "阿尤布 (1171-1250)", eraMamluk: "马穆鲁克 (1250-1517)", eraOttoman: "奥斯曼 (1517-1805)", eraModern: "近代/阿里 (1805-)", majorFaith: "信仰", majorRuling: "统治/防御", majorTrade: "贸易", majorLeisure: "休闲/服务", majorLiving: "居住", majorProduction: "生产", deleteConfirm: "确定要移除这个地点的标记吗？" }, en: { viewList: "List", viewMap: "Map", editMode: "Edit Mode", exportData: "Save Data", unmappedList: "Unmapped", layerControl: "Layers", layerEra: "Eras (Shape)", layerCategory: "Categories (Color)", layerParentheses: "Demolished Buildings (...)", labelId: "ID", labelMap: "Map", labelEra: "Era", labelCategory: "Main Category", labelSubCategory: "Sub Category", labelKeyword: "Keyword", placeholderKeyword: "Search name...", foundPrefix: "Found", foundSuffix: "items", reset: "Reset", noResult: "No results", viewDetails: "Details", searchFilter: "Search & Filter", eraAll: "All Eras", catAll: "All Types (All)", subCatAll: "All Sub-categories", subCatHint: "Select Major Category First", eraEarly: "Early Islamic (641-969)", eraFatimid: "Fatimid (969-1171)", eraAyyubid: "Ayyubid (1171-1250)", eraMamluk: "Mamluk (1250-1517)", eraOttoman: "Ottoman (1517-1805)", eraModern: "Modern (1805-)", majorFaith: "Faith", majorRuling: "Ruling/Defense", majorTrade: "Trade", majorLeisure: "Leisure", majorLiving: "Living", majorProduction: "Production", deleteConfirm: "Are you sure you want to remove this marker?" } };
@@ -485,7 +236,7 @@
             // 下载状态
             const downloading = ref(false);
 
-            const customColors = reactive({ ...DEFAULT_COLORS }); // <<--- THIS LINE IS MODIFIED
+            const customColors = reactive({ ...DEFAULT_COLORS });
             const visibleLayers = reactive({ eras: Object.keys(ERA_SHAPES), cats: Object.keys(DEFAULT_COLORS) });
             const coordinates = ref({ ...SAVED_COORDINATES });
             const itemToMap = ref(null);
@@ -515,7 +266,7 @@
             const selectItemToMap = (item) => { if (itemToMap.value && itemToMap.value.id === item.id) itemToMap.value = null; else itemToMap.value = item; };
             const switchView = (v) => { currentView.value = v; if(v === 'map') nextTick(() => { if(!mapInstance) initMap(); else mapInstance.invalidateSize(); }); };
             const toggleFullScreen = () => { isFullScreen.value = !isFullScreen.value; nextTick(() => mapInstance && mapInstance.invalidateSize()); };
-            const getSvgIcon = (shapePath, color) => { return `<div class="relative">${shapePath}<svg width="20" height="20" viewBox="0 0 20 20" style="filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.4)); overflow: visible;"><path d="${shapePath}" fill="${color}" stroke="white" stroke-width="1.5" /></svg></div>`; };
+            const getSvgIcon = (shapePath, color) => { return `<svg width="20" height="20" viewBox="0 0 20 20" style="filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.4)); overflow: visible;"><path d="${shapePath}" fill="${color}" stroke="white" stroke-width="1.5" /></svg>`; };
 
             // ★★★ 这里已经改为加载 map.webp ★★★
             const initMap = () => { mapInstance = L.map('map-container', { crs: L.CRS.Simple, minZoom: -4, maxZoom: 3, zoomControl: false, attributionControl: false }); L.control.zoom({ position: 'topright' }).addTo(mapInstance); loadMapImage('map.webp'); mapInstance.on('click', (e) => { if(!isEditMode.value || !itemToMap.value) return; coordinates.value[itemToMap.value.id] = [e.latlng.lat, e.latlng.lng]; renderMarkers(); itemToMap.value = null; }); };
@@ -673,11 +424,3 @@
 </script>
 </body>
 </html>
-The color for the "Living" category in your Cairo Monuments GIS application has been updated to `#f7bb3b` (yellow). This change has been applied in the provided HTML code.
-
-Here's the specific modification made in the `<script>` section:
-
-```javascript
-// ... other constants
-const DEFAULT_COLORS = { Faith: "#8b5cf6", Ruling: "#ef4444", Trade: "#10b981", Leisure: "#ec4899", Living: "#f7bb3b", Production: "#f97316" };
-// ... rest of the script
