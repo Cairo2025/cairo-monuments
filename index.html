@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v9.9 Fast Load)</title>
+    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v10.0 Faith Mode)</title>
     
     <!-- 1. 引入基础库 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -69,6 +69,10 @@
         /* 旋转动画 */
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .animate-spin { animation: spin 1s linear infinite; }
+        
+        /* Mode Switch Toggle */
+        .toggle-checkbox:checked { right: 0; border-color: #68D391; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #68D391; }
     </style>
 </head>
 <body>
@@ -275,7 +279,7 @@
 
                 <div id="map-container"></div>
                 
-                <!-- Layer Control -->
+                <!-- Layer Control (Enhanced) -->
                 <div class="absolute bottom-6 right-6 z-[1000] transition-all duration-300 transform" :class="{'translate-y-[150%]': hideMapControls}">
                     <div class="bg-white/95 backdrop-blur rounded-lg shadow-2xl border border-gray-200 w-64 overflow-hidden">
                         <div class="bg-gray-100 p-2 border-b flex justify-between items-center cursor-pointer" @click="showLayers = !showLayers">
@@ -283,6 +287,15 @@
                             <span class="text-xs">{{ showLayers ? '▼' : '▲' }}</span>
                         </div>
                         <div v-show="showLayers" class="p-3 max-h-96 overflow-y-auto no-scrollbar">
+                            
+                            <!-- FAITH MODE TOGGLE -->
+                            <div class="mb-3 pb-3 border-b border-gray-200">
+                                <label class="flex items-center text-xs font-bold text-blue-800 cursor-pointer hover:bg-blue-50 p-1 rounded transition">
+                                    <input type="checkbox" v-model="faithMode" class="mr-2 rounded text-blue-600 focus:ring-blue-500 w-4 h-4">
+                                    <span class="flex-grow">🕌 {{ t.faithMode }}</span>
+                                </label>
+                            </div>
+
                             <div class="mb-4">
                                 <h5 class="text-[10px] font-bold text-gray-400 uppercase mb-2 tracking-wider flex justify-between">{{ t.layerEra }} (Shape) <button @click="toggleAll('eras')" class="text-blue-500 hover:underline">All</button></h5>
                                 <div class="space-y-1">
@@ -293,7 +306,9 @@
                                     </label>
                                 </div>
                             </div>
-                            <div>
+                            
+                            <!-- DYNAMIC CATEGORY LAYER -->
+                            <div v-if="!faithMode">
                                 <h5 class="text-[10px] font-bold text-gray-400 uppercase mb-2 tracking-wider flex justify-between">{{ t.layerCategory }} (Color) <div><button @click="resetColors" class="text-gray-400 hover:text-red-500 mr-2">↺</button><button @click="toggleAll('cats')" class="text-blue-500 hover:underline">All</button></div></h5>
                                 <div class="space-y-1">
                                     <label v-for="(color, catKey) in customColors" :key="catKey" class="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
@@ -303,6 +318,19 @@
                                     </label>
                                 </div>
                             </div>
+                            
+                            <!-- FAITH SUB-CATEGORY LAYER -->
+                            <div v-else class="bg-blue-50 p-2 rounded border border-blue-100 mb-2">
+                                <h5 class="text-[10px] font-bold text-blue-600 uppercase mb-2 tracking-wider flex justify-between">Faith Types (Sub-Cat) <button @click="toggleAll('faith')" class="text-blue-500 hover:underline">All</button></h5>
+                                <div class="space-y-1">
+                                    <label v-for="(color, subKey) in faithSubColors" :key="subKey" class="flex items-center text-xs cursor-pointer hover:bg-white p-1 rounded">
+                                        <input type="checkbox" v-model="visibleFaithLayers" :value="subKey" class="mr-2 rounded text-blue-600 focus:ring-blue-500">
+                                        <span class="w-4 h-4 rounded-full mr-2 shadow-sm border border-gray-200" :style="{backgroundColor: color}"></span>
+                                        {{ t['subCat'+subKey] || subKey }}
+                                    </label>
+                                </div>
+                            </div>
+
                             <div class="mt-4 pt-2 border-t border-gray-200">
                                 <h5 class="text-[10px] font-bold text-gray-400 uppercase mb-2 tracking-wider">Special</h5>
                                 <label class="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
@@ -445,9 +473,23 @@
     // 常量定义
     const ERA_SHAPES = { Early: "M10,0 A10,10 0 1,1 10,20 A10,10 0 1,1 10,0", Fatimid: "M2,2 H18 V18 H2 Z", Ayyubid: "M10,2 L18,18 H2 Z", Mamluk: "M10,0 L20,10 L10,20 L0,10 Z", Ottoman: "M10,0 L12.5,7.5 H20 L14,12.5 L16,20 L10,15 L4,20 L6,12.5 L0,7.5 H7.5 Z", Modern: "M5,0 L15,0 L20,10 L15,20 L5,20 L0,10 Z" };
     const DEFAULT_COLORS = { Faith: "#8b5cf6", Ruling: "#ef4444", Trade: "#10b981", Leisure: "#ec4899", Living: "#3b82f6", Production: "#f97316" };
+    
+    // ★★★ NEW: Faith Sub-Category Colors for the new mode ★★★
+    const FAITH_SUB_COLORS = {
+        'Mosque': '#10b981',   // Emerald Green
+        'Madrasa': '#3b82f6',  // Blue
+        'Tomb': '#8b5cf6',     // Purple
+        'Sufi': '#f59e0b',     // Amber/Orange
+        'Kuttab': '#6366f1',   // Indigo
+        'Church': '#ef4444',   // Red
+        'Synagogue': '#06b6d4' // Cyan
+    };
+
     const SUB_CATEGORY_OPTIONS = { Ruling: [{ value: 'Gate', label: '城门 (Gate/Bab)' }, { value: 'Wall', label: '城墙 (Wall)' }, { value: 'Tower', label: '塔楼/防御 (Tower)' }, { value: 'Palace', label: '宫殿 (Palace/Qasr/Saraya)' }], Faith: [{ value: 'Mosque', label: '清真寺 (Mosque)' }, { value: 'Madrasa', label: '经学院 (Madrasa)' }, { value: 'Tomb', label: '陵墓/拱北 (Tomb/Mausoleum)' }, { value: 'Sufi', label: '道堂/哈卡 (Zawiya/Khanqah)' }, { value: 'Church', label: '教堂 (Church)' }, { value: 'Synagogue', label: '犹太会堂 (Synagogue)' }, { value: 'Kuttab', label: '古兰经学校 (Kuttab)' }], Trade: [{ value: 'Wikala', label: '商栈 (Wikala)' }, { value: 'Khan', label: '汗/商旅馆 (Khan)' }, { value: 'Market', label: '市场/苏克 (Souq/Badistan)' }], Leisure: [{ value: 'Sabil', label: '公益饮水处 (Sabil)' }, { value: 'Hawd', label: '饮水槽 (Hawd)' }, { value: 'Hammam', label: '公共澡堂 (Hammam)' }, { value: 'Library', label: '图书馆 (Library)' }, { value: 'Garden', label: '花园 (Garden)' }], Living: [{ value: 'House', label: '古宅 (House/Bayt/Manzil)' }, { value: 'Rab', label: '公寓楼 (Rab\')' }, { value: 'Hall', label: '厅堂 (Qa\'a/Maq\'ad)' }], Production: [] };
     const ID_OVERRIDES = { "66": "Tomb", "180": "Mosque", "15": "Mosque", "28": "Mosque", "60": "Mosque", "187": "Mosque", "190": "Mosque", "480": "Mosque", "40": "Mosque", "43": "Mosque", "30": "Mosque", "42": "Mosque", "382": "Mosque", "459": "Mosque", "44": "Mosque", "35": "Madrasa", "38": "Madrasa", "428": "Madrasa", "96": "Madrasa", "105": "Tomb", "U32": "Tomb", "371": "Sufi", "74": "Sabil", "401": "Sabil", "16": "Sabil", "17": "Sabil", "70": "Sabil", "71": "Sabil", "179": "Sabil", "76": "Sabil", "230": "Sabil", "232": "Sabil", "236": "Sabil", "311": "Sabil", "358": "Sabil", "427": "Sabil", "553": "Sabil", "591": "Sabil", "562": "Hammam", "U30": "Hammam", "596": "Hammam", "U46": "Library", "406": "Market", "408": "Market", "235": "House", "U7": "House", "U20": "House", "65": "House", "72": "House", "471": "House", "487": "House", "489": "House", "500": "House", "501": "House", "50": "Palace" };
-    const i18n = { zh: { viewList: "列表", viewMap: "地图", editMode: "编辑模式", exportData: "保存数据", unmappedList: "待落位", layerControl: "图层管理", layerEra: "历史时期 (形状)", layerCategory: "功能分类 (颜色)", layerParentheses: "已拆除建筑 (...)", labelId: "编号", labelMap: "图号", labelEra: "历史时期", labelCategory: "主要类别", labelSubCategory: "二级分类", labelKeyword: "关键词", placeholderKeyword: "搜索名称...", foundPrefix: "共", foundSuffix: "处", reset: "重置", noResult: "无结果", viewDetails: "详情", searchFilter: "搜索与筛选", eraAll: "全部时期", catAll: "全部类型 (All)", subCatAll: "全部二级分类", subCatHint: "请先选择主类别", eraEarly: "早期伊斯兰 (641-969)", eraFatimid: "法蒂玛 (969-1171)", eraAyyubid: "阿尤布 (1171-1250)", eraMamluk: "马穆鲁克 (1250-1517)", eraOttoman: "奥斯曼 (1517-1805)", eraModern: "近代/阿里 (1805-)", majorFaith: "信仰", majorRuling: "统治/防御", majorTrade: "贸易", majorLeisure: "休闲/服务", majorLiving: "居住", majorProduction: "生产", deleteConfirm: "确定要移除这个地点的标记吗？" }, en: { viewList: "List", viewMap: "Map", editMode: "Edit Mode", exportData: "Save Data", unmappedList: "Unmapped", layerControl: "Layers", layerEra: "Eras (Shape)", layerCategory: "Categories (Color)", layerParentheses: "Demolished Buildings (...)", labelId: "ID", labelMap: "Map", labelEra: "Era", labelCategory: "Main Category", labelSubCategory: "Sub Category", labelKeyword: "Keyword", placeholderKeyword: "Search name...", foundPrefix: "Found", foundSuffix: "items", reset: "Reset", noResult: "No results", viewDetails: "Details", searchFilter: "Search & Filter", eraAll: "All Eras", catAll: "All Types (All)", subCatAll: "All Sub-categories", subCatHint: "Select Major Category First", eraEarly: "Early Islamic (641-969)", eraFatimid: "Fatimid (969-1171)", eraAyyubid: "Ayyubid (1171-1250)", eraMamluk: "Mamluk (1250-1517)", eraOttoman: "Ottoman (1517-1805)", eraModern: "Modern (1805-)", majorFaith: "Faith", majorRuling: "Ruling/Defense", majorTrade: "Trade", majorLeisure: "Leisure", majorLiving: "Living", majorProduction: "Production", deleteConfirm: "Are you sure you want to remove this marker?" } };
+    
+    // Updated i18n
+    const i18n = { zh: { viewList: "列表", viewMap: "地图", editMode: "编辑模式", exportData: "保存数据", unmappedList: "待落位", layerControl: "图层管理", layerEra: "历史时期 (形状)", layerCategory: "功能分类 (颜色)", layerParentheses: "已拆除建筑 (...)", labelId: "编号", labelMap: "图号", labelEra: "历史时期", labelCategory: "主要类别", labelSubCategory: "二级分类", labelKeyword: "关键词", placeholderKeyword: "搜索名称...", foundPrefix: "共", foundSuffix: "处", reset: "重置", noResult: "无结果", viewDetails: "详情", searchFilter: "搜索与筛选", eraAll: "全部时期", catAll: "全部类型 (All)", subCatAll: "全部二级分类", subCatHint: "请先选择主类别", eraEarly: "早期伊斯兰 (641-969)", eraFatimid: "法蒂玛 (969-1171)", eraAyyubid: "阿尤布 (1171-1250)", eraMamluk: "马穆鲁克 (1250-1517)", eraOttoman: "奥斯曼 (1517-1805)", eraModern: "近代/阿里 (1805-)", majorFaith: "信仰", majorRuling: "统治/防御", majorTrade: "贸易", majorLeisure: "休闲/服务", majorLiving: "居住", majorProduction: "生产", deleteConfirm: "确定要移除这个地点的标记吗？", faithMode: "信仰详细模式 (Faith Detail)", subCatMosque: "清真寺 (Mosque)", subCatMadrasa: "经学院 (Madrasa)", subCatTomb: "陵墓 (Tomb)", subCatSufi: "道堂 (Sufi)", subCatChurch: "教堂 (Church)", subCatSynagogue: "犹太会堂 (Synagogue)", subCatKuttab: "古兰经学校 (Kuttab)" }, en: { viewList: "List", viewMap: "Map", editMode: "Edit Mode", exportData: "Save Data", unmappedList: "Unmapped", layerControl: "Layers", layerEra: "Eras (Shape)", layerCategory: "Categories (Color)", layerParentheses: "Demolished Buildings (...)", labelId: "ID", labelMap: "Map", labelEra: "Era", labelCategory: "Main Category", labelSubCategory: "Sub Category", labelKeyword: "Keyword", placeholderKeyword: "Search name...", foundPrefix: "Found", foundSuffix: "items", reset: "Reset", noResult: "No results", viewDetails: "Details", searchFilter: "Search & Filter", eraAll: "All Eras", catAll: "All Types (All)", subCatAll: "All Sub-categories", subCatHint: "Select Major Category First", eraEarly: "Early Islamic (641-969)", eraFatimid: "Fatimid (969-1171)", eraAyyubid: "Ayyubid (1171-1250)", eraMamluk: "Mamluk (1250-1517)", eraOttoman: "Ottoman (1517-1805)", eraModern: "Modern (1805-)", majorFaith: "Faith", majorRuling: "Ruling/Defense", majorTrade: "Trade", majorLeisure: "Leisure", majorLiving: "Living", majorProduction: "Production", deleteConfirm: "Are you sure you want to remove this marker?", faithMode: "Faith Detail Mode", subCatMosque: "Mosque", subCatMadrasa: "Madrasa", subCatTomb: "Tomb", subCatSufi: "Sufi", subCatChurch: "Church", subCatSynagogue: "Synagogue", subCatKuttab: "Kuttab" } };
 
     createApp({
         setup() {
@@ -463,6 +505,9 @@
             const mapLabelFontSize = ref(12); 
             const showParenthesesLayer = ref(false); 
             const showPhotoIcons = ref(false);
+            
+            // ★★★ NEW STATE: Faith Mode ★★★
+            const faithMode = ref(false);
 
             const exportIconScale = ref(100); 
             const exportTextScale = ref(100); 
@@ -486,6 +531,9 @@
 
             const customColors = reactive({ ...DEFAULT_COLORS });
             const visibleLayers = reactive({ eras: Object.keys(ERA_SHAPES), cats: Object.keys(DEFAULT_COLORS) });
+            // ★★★ NEW STATE: Visible Sub-Layers for Faith Mode ★★★
+            const visibleFaithLayers = ref(Object.keys(FAITH_SUB_COLORS));
+
             const coordinates = ref({ ...SAVED_COORDINATES });
             const itemToMap = ref(null);
             let mapInstance = null;
@@ -505,7 +553,13 @@
             const identifySubCategory = (item) => { if (ID_OVERRIDES[item.id]) return ID_OVERRIDES[item.id]; const n = item.name.toLowerCase(); if (n.includes('synagogue') || n.includes('temple')) return 'Synagogue'; if (n.includes('hawd') || n.includes('trough')) return 'Hawd'; if (n.includes('hammam') || n.includes('bath')) return 'Hammam'; if (n.includes('sabil')) return 'Sabil'; if (n.includes('garden')) return 'Garden'; if (n.includes('museum') || n.includes('library')) return 'Library'; if (n.includes('palace') || n.includes('qasr') || n.includes('saraya') || n.includes('musafirkhana')) return 'Palace'; if (n.includes('gate') || n.includes('bab ')) return 'Gate'; if (n.includes('wall') || n.includes('tower') || n.includes('fortification')) return 'Wall'; if (n.includes('wikala') || n.includes('wakala')) return 'Wikala'; if (n.includes('khan ') || n.includes('khan,')) return 'Khan'; if (n.includes('badistan') || n.includes('souq') || n.includes('market') || n.includes('bazaar') || n.includes('qaysariya')) return 'Market'; if (n.includes('mosque') || n.includes('masjid') || n.includes('jami')) return 'Mosque'; if (n.includes('madrasa')) return 'Madrasa'; if (n.includes('tomb') || n.includes('mausoleum') || n.includes('qubba') || n.includes('shrine') || n.includes('turba') || n.includes('mashhad')) return 'Tomb'; if (n.includes('zawiya') || n.includes('khanqah') || n.includes('takiya') || n.includes('ribat')) return 'Sufi'; if (n.includes('church') || n.includes('convent') || n.includes('cathedral')) return 'Church'; if (n.includes('kuttab')) return 'Kuttab'; if (n.includes('house') || n.includes('bayt') || n.includes('manzil') || n.includes('dar ')) return 'House'; if (n.includes('rab\'') || n.includes(' rab ')) return 'Rab'; if (n.includes('qa\'a') || n.includes('maq\'ad') || n.includes('hall')) return 'Hall'; const d = (item.description || "").toLowerCase(); if (d.includes('mosque')) return 'Mosque'; if (d.includes('house')) return 'House'; return null; };
             const getMainCategoryBySub = (subKey) => { if (!subKey) return 'Faith'; for (const [mainKey, options] of Object.entries(SUB_CATEGORY_OPTIONS)) { if (options.find(opt => opt.value === subKey)) return mainKey; } return 'Faith'; };
             const getSubCategoryLabel = (item) => { const subKey = identifySubCategory(item); if (!subKey) return ""; const mainKey = getMainCategoryBySub(subKey); const options = SUB_CATEGORY_OPTIONS[mainKey]; const found = options.find(o => o.value === subKey); return found ? found.label : subKey; };
-            const getCategoryInfo = (item) => { const subKey = identifySubCategory(item); const mainKey = getMainCategoryBySub(subKey); const color = customColors[mainKey] || '#666'; return { key: mainKey, style: { color: color, backgroundColor: `${color}15`, borderColor: `${color}40` }, label: t.value[`major${mainKey}`] }; };
+            const getCategoryInfo = (item) => { 
+                const subKey = identifySubCategory(item); 
+                const mainKey = getMainCategoryBySub(subKey); 
+                // Special handling for List View badges if Faith Mode is active logic (optional, but keep simple for now)
+                const color = customColors[mainKey] || '#666'; 
+                return { key: mainKey, style: { color: color, backgroundColor: `${color}15`, borderColor: `${color}40` }, label: t.value[`major${mainKey}`] }; 
+            };
 
             const filteredData = computed(() => { return FULL_DATABASE.filter(item => { if (searchId.value) { if (item.id.toString().toLowerCase() !== searchId.value.trim().toLowerCase()) { return false; } } if (searchMap.value && !item.map_sheet.includes(searchMap.value)) return false; if (searchKeyword.value) { const k = searchKeyword.value.toLowerCase(); if(!item.name.toLowerCase().includes(k)) return false; } if (selectedEra.value && getEraCategory(item.dating)!==selectedEra.value) return false; const subKey = identifySubCategory(item); const mainKey = getMainCategoryBySub(subKey); if (selectedCategory.value && mainKey !== selectedCategory.value) return false; if (selectedSubCategory.value && subKey !== selectedSubCategory.value) return false; return true; }); });
             const unmappedData = computed(() => filteredData.value.filter(i => !coordinates.value[i.id]));
@@ -531,10 +585,26 @@
                         const eraKey = getEraCategory(item.dating);
                         const subKey = identifySubCategory(item);
                         const mainKey = getMainCategoryBySub(subKey);
+                        
+                        // ★★★ LOGIC BRANCH: FAITH MODE vs NORMAL MODE ★★★
                         if (!visibleLayers.eras.includes(eraKey)) return;
-                        if (!visibleLayers.cats.includes(mainKey)) return;
+
+                        let color = '#999';
+
+                        if (faithMode.value) {
+                            // 1. If Faith Mode is ON, only show Faith items
+                            if (mainKey !== 'Faith') return;
+                            // 2. Check Sub-category visibility
+                            if (!visibleFaithLayers.value.includes(subKey)) return;
+                            // 3. Use Sub-category Color
+                            color = FAITH_SUB_COLORS[subKey] || '#666';
+                        } else {
+                            // Normal Mode
+                            if (!visibleLayers.cats.includes(mainKey)) return;
+                            color = customColors[mainKey] || '#999';
+                        }
+
                         const shape = ERA_SHAPES[eraKey] || ERA_SHAPES.Modern;
-                        let color = customColors[mainKey] || '#999';
                         const hasParentheses = item.id.includes('(') || item.id.includes(')');
                         if (showParenthesesLayer.value && hasParentheses) { color = '#000000'; }
                         
@@ -557,12 +627,34 @@
 
             const deleteMarker = (id) => { if (!confirm(t.value.deleteConfirm)) return; delete coordinates.value[id]; if (selectedItem.value && selectedItem.value.id === id) { closeModal(); } renderMarkers(); };
             
-            const exportFullMap = async () => { if (!imageOverlay || !imageOverlay._image) { alert("Map not loaded."); return; } const originalImg = imageOverlay._image; const width = originalImg.naturalWidth; const height = originalImg.naturalHeight; if (width === 0 || height === 0) return; const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d'); ctx.drawImage(originalImg, 0, 0); const baseScale = Math.max(1.0, width / 2500); const finalIconScale = baseScale * (exportIconScale.value / 100); const finalTextScale = baseScale * (exportTextScale.value / 100); ctx.textAlign = "center"; ctx.textBaseline = "top"; filteredData.value.forEach(item => { const coords = coordinates.value[item.id]; if (!coords) return; const eraKey = getEraCategory(item.dating); const subKey = identifySubCategory(item); const mainKey = getMainCategoryBySub(subKey); if (!visibleLayers.eras.includes(eraKey)) return; if (!visibleLayers.cats.includes(mainKey)) return; const x = coords[1]; const y = height - coords[0]; const shapePathStr = ERA_SHAPES[eraKey] || ERA_SHAPES.Modern; let color = customColors[mainKey] || '#999'; const hasParentheses = item.id.includes('(') || item.id.includes(')'); if (showParenthesesLayer.value && hasParentheses) { color = '#000000'; } ctx.save(); ctx.translate(x, y); ctx.scale(finalIconScale, finalIconScale); ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 4; ctx.shadowOffsetY = 2; const p = new Path2D(shapePathStr); ctx.translate(-10, -10); ctx.fillStyle = color; ctx.fill(p); ctx.lineWidth = 1; ctx.strokeStyle = "white"; ctx.shadowColor = "transparent"; ctx.stroke(p); ctx.restore(); if (exportTextScale.value > 0) { const fontSize = Math.max(10, 14 * finalTextScale); ctx.font = `bold ${fontSize}px sans-serif`; ctx.fillStyle = "#000"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,0.8)"; const labelText = item.map_sheet ? `#${item.id} (M:${item.map_sheet})` : `#${item.id}`; const labelOffsetY = (14 * finalIconScale); ctx.strokeText(labelText, x, y + labelOffsetY); ctx.fillText(labelText, x, y + labelOffsetY); } }); try { const link = document.createElement('a'); link.download = `Cairo_FullMap_${new Date().toISOString().slice(0,10)}_I${exportIconScale.value}_T${exportTextScale.value}.jpg`; link.href = canvas.toDataURL('image/jpeg', 0.85); link.click(); } catch (e) { console.error(e); alert("Export failed."); } };
+            const exportFullMap = async () => { if (!imageOverlay || !imageOverlay._image) { alert("Map not loaded."); return; } const originalImg = imageOverlay._image; const width = originalImg.naturalWidth; const height = originalImg.naturalHeight; if (width === 0 || height === 0) return; const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d'); ctx.drawImage(originalImg, 0, 0); const baseScale = Math.max(1.0, width / 2500); const finalIconScale = baseScale * (exportIconScale.value / 100); const finalTextScale = baseScale * (exportTextScale.value / 100); ctx.textAlign = "center"; ctx.textBaseline = "top"; filteredData.value.forEach(item => { const coords = coordinates.value[item.id]; if (!coords) return; const eraKey = getEraCategory(item.dating); const subKey = identifySubCategory(item); const mainKey = getMainCategoryBySub(subKey); if (!visibleLayers.eras.includes(eraKey)) return; 
+            
+            // Export Logic also needs to respect Faith Mode
+            let color = '#999';
+            if (faithMode.value) {
+                if (mainKey !== 'Faith') return;
+                if (!visibleFaithLayers.value.includes(subKey)) return;
+                color = FAITH_SUB_COLORS[subKey] || '#666';
+            } else {
+                if (!visibleLayers.cats.includes(mainKey)) return;
+                color = customColors[mainKey] || '#999';
+            }
 
-            const toggleAll = (type) => { const all = type === 'eras' ? Object.keys(ERA_SHAPES) : Object.keys(DEFAULT_COLORS); if (visibleLayers[type].length === all.length) visibleLayers[type] = []; else visibleLayers[type] = all; };
+            const x = coords[1]; const y = height - coords[0]; const shapePathStr = ERA_SHAPES[eraKey] || ERA_SHAPES.Modern; const hasParentheses = item.id.includes('(') || item.id.includes(')'); if (showParenthesesLayer.value && hasParentheses) { color = '#000000'; } ctx.save(); ctx.translate(x, y); ctx.scale(finalIconScale, finalIconScale); ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 4; ctx.shadowOffsetY = 2; const p = new Path2D(shapePathStr); ctx.translate(-10, -10); ctx.fillStyle = color; ctx.fill(p); ctx.lineWidth = 1; ctx.strokeStyle = "white"; ctx.shadowColor = "transparent"; ctx.stroke(p); ctx.restore(); if (exportTextScale.value > 0) { const fontSize = Math.max(10, 14 * finalTextScale); ctx.font = `bold ${fontSize}px sans-serif`; ctx.fillStyle = "#000"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,0.8)"; const labelText = item.map_sheet ? `#${item.id} (M:${item.map_sheet})` : `#${item.id}`; const labelOffsetY = (14 * finalIconScale); ctx.strokeText(labelText, x, y + labelOffsetY); ctx.fillText(labelText, x, y + labelOffsetY); } }); try { const link = document.createElement('a'); link.download = `Cairo_FullMap_${new Date().toISOString().slice(0,10)}_I${exportIconScale.value}_T${exportTextScale.value}.jpg`; link.href = canvas.toDataURL('image/jpeg', 0.85); link.click(); } catch (e) { console.error(e); alert("Export failed."); } };
+
+            const toggleAll = (type) => { 
+                if (type === 'faith') {
+                    if (visibleFaithLayers.value.length === Object.keys(FAITH_SUB_COLORS).length) visibleFaithLayers.value = [];
+                    else visibleFaithLayers.value = Object.keys(FAITH_SUB_COLORS);
+                    return;
+                }
+                const all = type === 'eras' ? Object.keys(ERA_SHAPES) : Object.keys(DEFAULT_COLORS); 
+                if (visibleLayers[type].length === all.length) visibleLayers[type] = []; else visibleLayers[type] = all; 
+            };
             const resetColors = () => { Object.assign(customColors, DEFAULT_COLORS); };
             
-            watch([filteredData, isEditMode, visibleLayers, customColors, showParenthesesLayer, showMapLabels, mapLabelFontSize, showPhotoIcons], () => { if(currentView.value === 'map') renderMarkers(); }, { deep: true });
+            // Watch 'faithMode' and 'visibleFaithLayers'
+            watch([filteredData, isEditMode, visibleLayers, customColors, showParenthesesLayer, showMapLabels, mapLabelFontSize, showPhotoIcons, faithMode, visibleFaithLayers], () => { if(currentView.value === 'map') renderMarkers(); }, { deep: true });
             
             const exportCoordinates = () => { navigator.clipboard.writeText(JSON.stringify(coordinates.value, null, 4)).then(() => alert("Coordinates copied to clipboard!")); };
             const resetSearch = () => { searchId.value=""; searchMap.value=""; searchKeyword.value=""; selectedCategory.value=""; selectedSubCategory.value=""; selectedEra.value=""; };
@@ -663,7 +755,10 @@
                 // 灯箱
                 isLightboxOpen, openLightbox, closeLightbox,
                 // 下载
-                downloadImages, downloading
+                downloadImages, downloading,
+
+                // ★★★ NEW EXPORTS ★★★
+                faithMode, faithSubColors: FAITH_SUB_COLORS, visibleFaithLayers
             };
         }
     }).mount('#app');
