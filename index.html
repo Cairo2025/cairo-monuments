@@ -3,11 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<<<<<<< HEAD
-    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v9.8 No Rotation)</title>
-=======
-    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v9.9 Fast Load)</title>
->>>>>>> parent of 76e96dd (1216debug修改)
+    <title>Cairo Monuments GIS | 开罗古迹地图系统 (Pro Gallery v10.0 WebP Map)</title>
     
     <!-- 1. 引入基础库 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -69,6 +65,10 @@
         }
 
         [v-cloak] { display: none !important; }
+        
+        /* 旋转动画 */
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
     </style>
 </head>
 <body>
@@ -246,7 +246,8 @@
                             <label class="inline-flex items-center cursor-pointer">
                                 <input type="checkbox" v-model="isEditMode" class="sr-only peer">
                                 <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-500"></div>
-                                <span class="ms-2 text-xs font-bold text-gray-700 select-none">✏️ {{ t.editMode }}</span>
+                                <span class="ms-2 text-xs font-bold text-gray-700 select-none">✏️ {{ t.editMode }}
+</span>
                             </label>
                             <button v-if="isEditMode" @click="exportCoordinates" class="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 shadow">💾 {{ t.exportData }}</button>
                         </div>
@@ -346,21 +347,32 @@
                              <span v-if="getCategoryInfo(selectedItem)" :class="`inline-flex items-center px-2 py-1 rounded text-xs font-medium border`" :style="getCategoryInfo(selectedItem).style">{{ getCategoryInfo(selectedItem).label }} - {{ getSubCategoryLabel(selectedItem) }}</span>
                         </div>
 
-                        <!-- 轮播组件 -->
-                        <div class="mb-4 relative group bg-gray-100 rounded-lg overflow-hidden border border-gray-200" style="min-height: 200px;">
-                            <div v-if="selectedItem.image_paths && selectedItem.image_paths.length > 0">
+                        <!-- 轮播组件 (优化版) -->
+                        <div class="mb-4 relative group bg-gray-100 rounded-lg overflow-hidden border border-gray-200 flex items-center justify-center" style="min-height: 200px; height: 320px;">
+                            <div v-if="selectedItem.image_paths && selectedItem.image_paths.length > 0" class="w-full h-full flex items-center justify-center bg-gray-50 relative">
+                                
+                                <!-- Loading Spinner -->
+                                <div v-if="isImageLoading" class="absolute inset-0 flex items-center justify-center z-10 text-blue-500">
+                                    <svg class="animate-spin h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </div>
+
                                 <img :src="selectedItem.image_paths[currentImageIndex]" 
                                      @click="openLightbox"
-                                     class="w-full h-64 sm:h-80 object-contain mx-auto transition-all duration-300 bg-black/5 cursor-zoom-in" 
+                                     @load="onImageLoad"
+                                     v-show="!isImageLoading"
+                                     class="max-w-full max-h-full object-contain transition-opacity duration-300 cursor-zoom-in shadow-sm z-1" 
                                      alt="Monument Image">
                                 
                                 <div v-if="selectedItem.image_paths.length > 1">
-                                    <button @click.stop="prevImage" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/60 text-white rounded-full p-2 transition backdrop-blur-sm">❮</button>
-                                    <button @click.stop="nextImage" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/60 text-white rounded-full p-2 transition backdrop-blur-sm">❯</button>
-                                    <div class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-3 py-1 rounded-full backdrop-blur-sm">{{ currentImageIndex + 1 }} / {{ selectedItem.image_paths.length }}</div>
+                                    <button @click.stop="prevImage" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/60 text-white rounded-full p-2 transition backdrop-blur-sm z-20">❮</button>
+                                    <button @click.stop="nextImage" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/60 text-white rounded-full p-2 transition backdrop-blur-sm z-20">❯</button>
+                                    <div class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-3 py-1 rounded-full backdrop-blur-sm z-20">{{ currentImageIndex + 1 }} / {{ selectedItem.image_paths.length }}</div>
                                 </div>
                             </div>
-                            <div v-else class="h-64 sm:h-80 flex flex-col items-center justify-center text-gray-400">
+                            <div v-else class="flex flex-col items-center justify-center text-gray-400">
                                 <span class="text-4xl opacity-20 mb-2">📷</span>
                                 <span class="text-sm">暂无图片 (No Image)</span>
                             </div>
@@ -389,7 +401,7 @@
             </div>
         </div>
 
-        <!-- ★★★ 功能 1：全屏图片灯箱 (Lightbox) - 无旋转功能 ★★★ -->
+        <!-- ★★★ 功能 1：全屏图片灯箱 (Lightbox) - 优化版 ★★★ -->
         <div v-if="isLightboxOpen && selectedItem && selectedItem.image_paths && selectedItem.image_paths.length > 0" 
              class="fixed inset-0 z-[4000] bg-black bg-opacity-95 flex items-center justify-center overflow-hidden"
              @click.self="closeLightbox">
@@ -400,9 +412,19 @@
             <!-- 左箭头 -->
             <button v-if="selectedItem.image_paths.length > 1" @click.stop="prevImage" class="absolute left-4 top-1/2 -translate-y-1/2 text-white text-5xl hover:text-gray-300 z-[4001] p-4">❮</button>
             
-            <!-- 大图 -->
+            <!-- 大图容器 -->
             <div class="relative w-full h-full flex items-center justify-center p-10">
+                <!-- Lightbox Loading Spinner -->
+                <div v-if="isImageLoading" class="absolute inset-0 flex items-center justify-center z-50 text-white">
+                    <svg class="animate-spin h-12 w-12" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+
                 <img :src="selectedItem.image_paths[currentImageIndex]" 
+                     @load="onImageLoad"
+                     v-show="!isImageLoading"
                      class="max-h-full max-w-full object-contain select-none shadow-2xl" 
                      alt="Full Screen Image">
             </div>
@@ -452,8 +474,11 @@
             const selectedSubCategory = ref(""); 
             const selectedEra = ref("");
             const selectedItem = ref(null);
-            const currentImageIndex = ref(0);
             
+            // 图片浏览与预加载状态
+            const currentImageIndex = ref(0);
+            const isImageLoading = ref(true);
+
             // 灯箱状态
             const isLightboxOpen = ref(false);
             
@@ -492,7 +517,9 @@
             const toggleFullScreen = () => { isFullScreen.value = !isFullScreen.value; nextTick(() => mapInstance && mapInstance.invalidateSize()); };
             const getSvgIcon = (shapePath, color) => { return `<svg width="20" height="20" viewBox="0 0 20 20" style="filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.4)); overflow: visible;"><path d="${shapePath}" fill="${color}" stroke="white" stroke-width="1.5" /></svg>`; };
 
-            const initMap = () => { mapInstance = L.map('map-container', { crs: L.CRS.Simple, minZoom: -4, maxZoom: 3, zoomControl: false, attributionControl: false }); L.control.zoom({ position: 'topright' }).addTo(mapInstance); loadMapImage('map.jpg'); mapInstance.on('click', (e) => { if(!isEditMode.value || !itemToMap.value) return; coordinates.value[itemToMap.value.id] = [e.latlng.lat, e.latlng.lng]; renderMarkers(); itemToMap.value = null; }); };
+            // ★★★ 这里已经改为加载 map.webp ★★★
+            const initMap = () => { mapInstance = L.map('map-container', { crs: L.CRS.Simple, minZoom: -4, maxZoom: 3, zoomControl: false, attributionControl: false }); L.control.zoom({ position: 'topright' }).addTo(mapInstance); loadMapImage('map.webp'); mapInstance.on('click', (e) => { if(!isEditMode.value || !itemToMap.value) return; coordinates.value[itemToMap.value.id] = [e.latlng.lat, e.latlng.lng]; renderMarkers(); itemToMap.value = null; }); };
+            
             const loadMapImage = (url) => { const img = new Image(); img.src = url; img.onload = () => { mapError.value = false; const b = [[0,0], [img.height, img.width]]; if(imageOverlay) mapInstance.removeLayer(imageOverlay); imageOverlay = L.imageOverlay(url, b).addTo(mapInstance); mapInstance.fitBounds(b); renderMarkers(); }; img.onerror = () => mapError.value = true; };
             const loadLocalImage = (e) => { const f=e.target.files[0]; if(f){ const r=new FileReader(); r.onload=ev=>loadMapImage(ev.target.result); r.readAsDataURL(f); } };
 
@@ -548,9 +575,43 @@
             const googleTranslateUrl = computed(() => selectedItem.value ? `https://translate.google.com/?sl=en&tl=zh-CN&text=${encodeURIComponent(selectedItem.value.description)}&op=translate` : "#");
             const getSvgPath = (d) => d; 
 
-            // 图片轮播
-            const nextImage = () => { if (selectedItem.value && selectedItem.value.image_paths) { currentImageIndex.value = (currentImageIndex.value + 1) % selectedItem.value.image_paths.length; } };
-            const prevImage = () => { if (selectedItem.value && selectedItem.value.image_paths) { currentImageIndex.value = (currentImageIndex.value - 1 + selectedItem.value.image_paths.length) % selectedItem.value.image_paths.length; } };
+            // ============ 图片优化相关逻辑 ============
+            
+            // 预加载功能
+            const preloadImages = (urls) => {
+                if (!urls || urls.length === 0) return;
+                urls.forEach(url => {
+                    const img = new Image();
+                    img.src = url;
+                });
+            };
+
+            // 当图片标签触发 @load 事件时
+            const onImageLoad = () => {
+                isImageLoading.value = false;
+            };
+
+            // 监听选中项变化，重置索引并预加载
+            watch(selectedItem, (newItem) => { 
+                currentImageIndex.value = 0; 
+                isImageLoading.value = true;
+                if (newItem && newItem.image_paths && newItem.image_paths.length > 0) {
+                    preloadImages(newItem.image_paths);
+                }
+            });
+
+            const nextImage = () => { 
+                if (selectedItem.value && selectedItem.value.image_paths) { 
+                    isImageLoading.value = true;
+                    currentImageIndex.value = (currentImageIndex.value + 1) % selectedItem.value.image_paths.length; 
+                } 
+            };
+            const prevImage = () => { 
+                if (selectedItem.value && selectedItem.value.image_paths) { 
+                    isImageLoading.value = true;
+                    currentImageIndex.value = (currentImageIndex.value - 1 + selectedItem.value.image_paths.length) % selectedItem.value.image_paths.length; 
+                } 
+            };
             
             // 灯箱
             const openLightbox = () => { isLightboxOpen.value = true; };
@@ -562,7 +623,6 @@
                 
                 downloading.value = true;
                 const zip = new JSZip();
-                // 清理文件名中的特殊字符
                 const safeName = selectedItem.value.name.replace(/[^a-z0-9]/gi, '_').replace(/_+/g, '_');
                 const folderName = `${selectedItem.value.id}_${safeName}`;
 
@@ -572,7 +632,6 @@
                         if (!response.ok) throw new Error(`Failed to fetch ${url}`);
                         const blob = await response.blob();
                         const filename = url.substring(url.lastIndexOf('/') + 1);
-                        // 解码文件名（处理 URL 编码的字符）
                         const decodedFilename = decodeURIComponent(filename);
                         zip.file(decodedFilename, blob);
                     });
@@ -587,11 +646,6 @@
                     downloading.value = false;
                 }
             };
-
-            // 当打开新地点时，重置
-            watch(selectedItem, () => { 
-                currentImageIndex.value = 0; 
-            });
 
             return {
                 currentView, currentLang, isFullScreen, isEditMode, isSearchCollapsed, hideMapControls, mapError,
@@ -608,6 +662,7 @@
                 
                 // 图片相关
                 currentImageIndex, nextImage, prevImage, showPhotoIcons,
+                isImageLoading, onImageLoad, // 导出新变量
                 // 灯箱
                 isLightboxOpen, openLightbox, closeLightbox,
                 // 下载
