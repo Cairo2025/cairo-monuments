@@ -1903,7 +1903,19 @@ const FULL_DATABASE = [
         "map_sheet": "18",
         "dating": "AH 1058–1211 / AD 1648–1796",
         "description": "This courtyard house belonged originally to Shaykh al-Tablawi in the seventeenth century, before it passed into the hands of Shaykh al-Sihaymi and his successors; it was known to the Comité as the house of al-Kassabi. It is unusual among Cairene houses not only for its size, but also for the preservation of some ancillary service elements such as a waterwheel and corn mill in a garden behind the house. The garden also contains the reconstructed late-Mamluk tomb of Gamal al-Din, with an unusual pierced dome, moved to this location in 1952. Maury (1983) suggests that this house, together with the house of Mustafa Gaf‘ar (no. 471), and the Khorazati house (U3), may at one time have been parts of a single huge dependency. The house has several large qa‘as, a maq‘ad, and a fine bathhouse. It was heavily restored by the Comité in the 1930s and further restored in 1998–2000. 这座庭院住宅在17世纪最初属于谢赫·塔布拉维（Shaykh al-Tablawi），后来转入谢赫·西海米（Shaykh al-Sihaymi）及其继承人手中；委员会称其为卡萨比（al-Kassabi）住宅。在开罗的房屋中，它不仅因其规模而不寻常，还因其房屋后面花园中保存了一些附属服务元素，如水车和谷物磨。花园还包含重建的马穆鲁克晚期贾马尔·丁（Gamal al-Din）陵墓，该陵墓有一个不寻常的穿孔圆顶，于1952年移至此地。Maury（1983）认为，这座房子连同穆斯塔法·加法尔住宅（编号471）和霍拉扎蒂住宅（U3），可能曾是同一个巨大庄园的一部分。房子有几个大卡阿、一个马卡德和一个精美的澡堂。它于1930年代由委员会大力修复，并于1998-2000年进一步修复。",
-        "image_paths": []
+        "image_paths": [
+            "images/339_Bayt%20al-Suhaymi/ScreenShot_2025-12-16_145553_697.png",
+            "images/339_Bayt%20al-Suhaymi/ScreenShot_2025-12-16_145614_066.png",
+            "images/339_Bayt%20al-Suhaymi/ScreenShot_2025-12-16_145628_539.png",
+            "images/339_Bayt%20al-Suhaymi/ScreenShot_2025-12-16_145711_815.png",
+            "images/339_Bayt%20al-Suhaymi/ScreenShot_2025-12-16_145719_636.png",
+            "images/339_Bayt%20al-Suhaymi/ScreenShot_2025-12-16_145726_822.png",
+            "images/339_Bayt%20al-Suhaymi/ScreenShot_2025-12-16_145736_220.png",
+            "images/339_Bayt%20al-Suhaymi/ScreenShot_2025-12-16_145743_585.png",
+            "images/339_Bayt%20al-Suhaymi/ScreenShot_2025-12-16_145803_341.png",
+            "images/339_Bayt%20al-Suhaymi/ScreenShot_2025-12-16_145812_145.png",
+            "images/339_Bayt%20al-Suhaymi/ScreenShot_2025-12-16_145819_787.png"
+        ]
     },
     {
         "id": "351",
