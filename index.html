@@ -613,7 +613,7 @@
                 }, 100);
             });
 
-            // ★★★ UPDATED RENDER MARKERS (Photo Logic) ★★★
+           // ★★★ 请将此代码粘贴替换原有的 renderMarkers 函数 ★★★
             const renderMarkers = () => {
                 if (!mapInstance) return;
                 if (markersLayer) mapInstance.removeLayer(markersLayer);
@@ -630,14 +630,36 @@
 
                         let color = '#999';
 
-                        // 1. Color Logic
+                        // Logic: Color & Category Handling
                         if (faithMode.value) {
-                            const nameLower = item.name.toLowerCase();
-                            const descLower = (item.description || "").toLowerCase();
-                            const isHybridKuttab = (mainKey === 'Leisure' || subKey === 'Sabil') && (nameLower.includes('kuttab') || descLower.includes('kuttab'));
+                            // --- [开始] 信仰模式特殊覆盖逻辑 ---
+                            const sId = item.id.toString();
+
+                            // 1. 移除不属于信仰的 ID
+                            if (['433', '27', '232'].includes(sId)) return;
+
+                            // 2. 强制归类
+                            const faithOverrides = {
+                                '175': 'Madrasa',
+                                '203': 'Sufi',
+                                '448': 'Mosque'
+                            };
+
                             let effectiveSubKey = subKey;
-                            if (isHybridKuttab) effectiveSubKey = 'Kuttab';
-                            if (mainKey !== 'Faith' && !isHybridKuttab) return;
+
+                            if (faithOverrides[sId]) {
+                                effectiveSubKey = faithOverrides[sId];
+                            } else {
+                                const nameLower = item.name.toLowerCase();
+                                const descLower = (item.description || "").toLowerCase();
+                                const isHybridKuttab = (mainKey === 'Leisure' || subKey === 'Sabil') && (nameLower.includes('kuttab') || descLower.includes('kuttab'));
+                                
+                                if (isHybridKuttab) effectiveSubKey = 'Kuttab';
+                                
+                                if (mainKey !== 'Faith' && !isHybridKuttab) return;
+                            }
+                            // --- [结束] ---
+
                             if (!visibleFaithLayers.value.includes(effectiveSubKey)) return;
                             color = FAITH_SUB_COLORS[effectiveSubKey] || '#666';
                         } else {
@@ -649,11 +671,9 @@
                         const hasParentheses = item.id.includes('(') || item.id.includes(')');
                         if (showParenthesesLayer.value && hasParentheses) { color = '#000000'; }
                         
-                        // ★★★ PHOTO VISUALIZATION LOGIC ★★★
                         const hasPhotos = item.image_paths && item.image_paths.length > 0;
                         let markerStyle = '';
 
-                        // If Photo mode is ON and marker has NO photos -> desaturate & fade
                         if (showPhotoIcons.value && !hasPhotos) {
                             markerStyle = 'filter: saturate(0.0) opacity(0.4);'; 
                         }
@@ -664,7 +684,6 @@
                             markerHtml += `<div class="photo-badge">📷</div>`;
                         }
                         markerHtml += `</div>`;
-                        // ★★★ END LOGIC ★★★
 
                         const icon = L.divIcon({ html: markerHtml, className: 'custom-marker', iconSize: [20, 20], iconAnchor: [10, 10] });
                         const marker = L.marker(coords, { icon: icon, draggable: isEditMode.value });
@@ -679,25 +698,111 @@
 
             const deleteMarker = (id) => { if (!confirm(t.value.deleteConfirm)) return; delete coordinates.value[id]; if (selectedItem.value && selectedItem.value.id === id) { closeModal(); } renderMarkers(); };
             
-            const exportFullMap = async () => { if (!imageOverlay || !imageOverlay._image) { alert("Map not loaded."); return; } const originalImg = imageOverlay._image; const width = originalImg.naturalWidth; const height = originalImg.naturalHeight; if (width === 0 || height === 0) return; const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d'); ctx.drawImage(originalImg, 0, 0); const baseScale = Math.max(1.0, width / 2500); const finalIconScale = baseScale * (exportIconScale.value / 100); const finalTextScale = baseScale * (exportTextScale.value / 100); ctx.textAlign = "center"; ctx.textBaseline = "top"; filteredData.value.forEach(item => { const coords = coordinates.value[item.id]; if (!coords) return; const eraKey = getEraCategory(item.dating); const subKey = identifySubCategory(item); const mainKey = getMainCategoryBySub(subKey); if (!visibleLayers.eras.includes(eraKey)) return; 
+            // ★★★ 请将此代码粘贴替换原有的 exportFullMap 函数 ★★★
+            const exportFullMap = async () => { 
+                if (!imageOverlay || !imageOverlay._image) { alert("Map not loaded."); return; } 
+                const originalImg = imageOverlay._image; 
+                const width = originalImg.naturalWidth; 
+                const height = originalImg.naturalHeight; 
+                if (width === 0 || height === 0) return; 
+                const canvas = document.createElement('canvas'); 
+                canvas.width = width; 
+                canvas.height = height; 
+                const ctx = canvas.getContext('2d'); 
+                ctx.drawImage(originalImg, 0, 0); 
+                const baseScale = Math.max(1.0, width / 2500); 
+                const finalIconScale = baseScale * (exportIconScale.value / 100); 
+                const finalTextScale = baseScale * (exportTextScale.value / 100); 
+                ctx.textAlign = "center"; 
+                ctx.textBaseline = "top"; 
+                
+                filteredData.value.forEach(item => { 
+                    const coords = coordinates.value[item.id]; 
+                    if (!coords) return; 
+                    const eraKey = getEraCategory(item.dating); 
+                    const subKey = identifySubCategory(item); 
+                    const mainKey = getMainCategoryBySub(subKey); 
+                    
+                    if (!visibleLayers.eras.includes(eraKey)) return; 
             
-            let color = '#999';
-            if (faithMode.value) {
-                const nameLower = item.name.toLowerCase();
-                const descLower = (item.description || "").toLowerCase();
-                const isHybridKuttab = (mainKey === 'Leisure' || subKey === 'Sabil') && (nameLower.includes('kuttab') || descLower.includes('kuttab'));
-                let effectiveSubKey = subKey;
-                if (isHybridKuttab) effectiveSubKey = 'Kuttab';
+                    let color = '#999';
+                    if (faithMode.value) {
+                        // --- [开始] 导出时的同步覆盖逻辑 ---
+                        const sId = item.id.toString();
+                        
+                        // 1. 移除
+                        if (['433', '27', '232'].includes(sId)) return;
 
-                if (mainKey !== 'Faith' && !isHybridKuttab) return;
-                if (!visibleFaithLayers.value.includes(effectiveSubKey)) return;
-                color = FAITH_SUB_COLORS[effectiveSubKey] || '#666';
-            } else {
-                if (!visibleLayers.cats.includes(mainKey)) return;
-                color = customColors[mainKey] || '#999';
-            }
+                        // 2. 强制归类
+                        const faithOverrides = {
+                            '175': 'Madrasa',
+                            '203': 'Sufi',
+                            '448': 'Mosque'
+                        };
 
-            const x = coords[1]; const y = height - coords[0]; const shapePathStr = ERA_SHAPES[eraKey] || ERA_SHAPES.Modern; const hasParentheses = item.id.includes('(') || item.id.includes(')'); if (showParenthesesLayer.value && hasParentheses) { color = '#000000'; } ctx.save(); ctx.translate(x, y); ctx.scale(finalIconScale, finalIconScale); ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 4; ctx.shadowOffsetY = 2; const p = new Path2D(shapePathStr); ctx.translate(-10, -10); ctx.fillStyle = color; ctx.fill(p); ctx.lineWidth = 1; ctx.strokeStyle = "white"; ctx.shadowColor = "transparent"; ctx.stroke(p); ctx.restore(); if (exportTextScale.value > 0) { const fontSize = Math.max(10, 14 * finalTextScale); ctx.font = `bold ${fontSize}px sans-serif`; ctx.fillStyle = "#000"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,0.8)"; const labelText = item.map_sheet ? `#${item.id} (M:${item.map_sheet})` : `#${item.id}`; const labelOffsetY = (14 * finalIconScale); ctx.strokeText(labelText, x, y + labelOffsetY); ctx.fillText(labelText, x, y + labelOffsetY); } }); try { const link = document.createElement('a'); link.download = `Cairo_FullMap_${new Date().toISOString().slice(0,10)}_I${exportIconScale.value}_T${exportTextScale.value}.jpg`; link.href = canvas.toDataURL('image/jpeg', 0.85); link.click(); } catch (e) { console.error(e); alert("Export failed."); } };
+                        let effectiveSubKey = subKey;
+
+                        if (faithOverrides[sId]) {
+                            effectiveSubKey = faithOverrides[sId];
+                        } else {
+                            const nameLower = item.name.toLowerCase();
+                            const descLower = (item.description || "").toLowerCase();
+                            const isHybridKuttab = (mainKey === 'Leisure' || subKey === 'Sabil') && (nameLower.includes('kuttab') || descLower.includes('kuttab'));
+                            if (isHybridKuttab) effectiveSubKey = 'Kuttab';
+                            
+                            if (mainKey !== 'Faith' && !isHybridKuttab) return;
+                        }
+                        // --- [结束] ---
+
+                        if (!visibleFaithLayers.value.includes(effectiveSubKey)) return;
+                        color = FAITH_SUB_COLORS[effectiveSubKey] || '#666';
+                    } else {
+                        if (!visibleLayers.cats.includes(mainKey)) return;
+                        color = customColors[mainKey] || '#999';
+                    }
+
+                    const x = coords[1]; 
+                    const y = height - coords[0]; 
+                    const shapePathStr = ERA_SHAPES[eraKey] || ERA_SHAPES.Modern; 
+                    const hasParentheses = item.id.includes('(') || item.id.includes(')'); 
+                    if (showParenthesesLayer.value && hasParentheses) { color = '#000000'; } 
+                    ctx.save(); 
+                    ctx.translate(x, y); 
+                    ctx.scale(finalIconScale, finalIconScale); 
+                    ctx.shadowColor = "rgba(0,0,0,0.5)"; 
+                    ctx.shadowBlur = 4; 
+                    ctx.shadowOffsetY = 2; 
+                    const p = new Path2D(shapePathStr); 
+                    ctx.translate(-10, -10); 
+                    ctx.fillStyle = color; 
+                    ctx.fill(p); 
+                    ctx.lineWidth = 1; 
+                    ctx.strokeStyle = "white"; 
+                    ctx.shadowColor = "transparent"; 
+                    ctx.stroke(p); 
+                    ctx.restore(); 
+                    if (exportTextScale.value > 0) { 
+                        const fontSize = Math.max(10, 14 * finalTextScale); 
+                        ctx.font = `bold ${fontSize}px sans-serif`; 
+                        ctx.fillStyle = "#000"; 
+                        ctx.lineWidth = 3; 
+                        ctx.strokeStyle = "rgba(255,255,255,0.8)"; 
+                        const labelText = item.map_sheet ? `#${item.id} (M:${item.map_sheet})` : `#${item.id}`; 
+                        const labelOffsetY = (14 * finalIconScale); 
+                        ctx.strokeText(labelText, x, y + labelOffsetY); 
+                        ctx.fillText(labelText, x, y + labelOffsetY); 
+                    } 
+                }); 
+                try { 
+                    const link = document.createElement('a'); 
+                    link.download = `Cairo_FullMap_${new Date().toISOString().slice(0,10)}_I${exportIconScale.value}_T${exportTextScale.value}.jpg`; 
+                    link.href = canvas.toDataURL('image/jpeg', 0.85); 
+                    link.click(); 
+                } catch (e) { 
+                    console.error(e); 
+                    alert("Export failed."); 
+                } 
+            };
 
             const toggleAll = (type) => { 
                 if (type === 'faith') {
