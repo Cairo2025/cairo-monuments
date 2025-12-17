@@ -521,7 +521,9 @@ const FULL_DATABASE = [
         "map_sheet": "18",
         "dating": "ca. AH 735 / AD 1335",
         "description": "This mausoleum is a tiny stone cube with a rib and-fillet plastered-brick dome, at the base of which is an inscription band. Adjacent to the tomb is a small zawiya, which is entered through a simple trilobed stone portal. The remains of a geometric carved stone window grille can be seen above the door. 这座陵墓是一个极小的石制立方体，顶部有一个带有肋状和圆角装饰的灰泥砖圆顶，圆顶基部有一条铭文带。毗邻陵墓的是一个小扎维亚（zawiya），通过一个简单的三叶形石门进入。门上方可以看到几何石刻窗格栅的遗迹。",
-        "image_paths": []
+        "image_paths": [
+            "images/10_Mausoleum%20of%20Ahmad%20al-Qasid/ScreenShot_2025-12-17_101237_999.png"
+        ]
     },
     {
         "id": "11",
